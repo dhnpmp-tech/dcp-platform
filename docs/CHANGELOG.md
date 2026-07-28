@@ -2,6 +2,37 @@
 
 ## [Unreleased]
 
+### 2026-07-27 15:12 UTC - i18n round 3 funnel literal cleanup (PR #975)
+
+- **PR:** [#975](https://github.com/dhnpmp-tech/dcp-platform/pull/975) (`agent/codex/task_383550b16af8-i18n-round-3`).
+- **Mission Control:** `task_383550b16af8`.
+- **Renter keys:** Localized screen-reader labels and the new-key placeholder on `/renter/keys`, closing the remaining token/API-key page hardcoded literal gap without changing key creation or revocation behavior.
+- **Marketplace models:** Added missing English/Arabic dictionary entries for model browsing filters, tiers, sort options, token units, provider-empty states, and deploy/empty/result labels.
+- **Public marketplace:** Wrapped remaining descriptive model-lineup tags in the V2 bilingual helper while leaving model names, API hosts, and price values literal.
+- **Featured Arabic models:** Localized price-unit text for SAR/USD per-minute rows.
+- **Safety:** Frontend copy/accessibility/i18n-only change; no API, billing, payments, routing, model availability, provider state, renter auth, key creation, or deployment behavior changed.
+- **Verification:** `node tests/i18n-round3-static.test.js`, `npx tsc --noEmit --pretty false`, and `git diff --check`.
+### 2026-07-27 14:11 UTC - Mining guard daemon bundle distribution (PR #974)
+
+- **PR:** [#974](https://github.com/dhnpmp-tech/dcp-platform/pull/974) (`agent/codex/task_1ff3cfca753b-mining-guard-bundle`).
+- **Mission Control:** `task_1ff3cfca753b`.
+- **Backend bundle route:** Provider daemon `check_only` and manifest responses now include a `mining_guard` artifact manifest, and `GET /api/providers/download/mining-guard` serves the companion `mining_guard.py` with the published sha256.
+- **Installer coverage:** Unix/macOS and Windows provider installers now fetch `mining_guard.py` beside `dcp_daemon.py` and fail the install if the guard companion cannot be delivered.
+- **Daemon self-update:** `dcp_daemon.py` now refreshes and verifies `mining_guard.py` during self-update before swapping the daemon file.
+- **Fail-loud runtime:** If `mining_guard.py` cannot be imported, the daemon logs an error and emits a one-shot `mining_guard_unavailable` critical daemon event instead of silently disabling host anti-miner coverage.
+- **Safety:** Provider-install and daemon-update distribution only; no live provider mutation, no quarantine-policy change, no payment/billing/routing change, and no production host rollout performed by this PR.
+- **Verification:** Focused daemon bundle Jest suite, `node --check backend/src/routes/providers.js`, `python3 -m py_compile` for daemon/guard, `bash -n backend/public/install.sh`, OpenAPI route-block parse, and `git diff --check`.
+
+### 2026-07-27 13:10 UTC - ECC review trio CI hardening (PR #973)
+
+- **PR:** [#973](https://github.com/dhnpmp-tech/dcp-platform/pull/973) (`agent/codex/task_9efef75bae1c-ecc-review-ci`).
+- **Mission Control:** `task_9efef75bae1c`.
+- **Comment cap:** ECC PR review Markdown now truncates near 60,000 characters with a visible note so oversized finding tables do not trip GitHub's issue-comment API limit.
+- **Sticky comment pagination:** ECC sticky-comment lookup now follows GitHub `Link` pagination, preventing duplicate comments when a pull request already has more than 100 comments.
+- **File-size guard:** ECC analyzers skip full-file fallback reads for changed files larger than 2 MB, avoiding runner memory spikes on generated source files while still using diff-added lines.
+- **Safety:** CI/script/docs/test-only hardening; no production runtime, provider routing, billing, payments, deployments, Mission task writes, host rollout, or user-facing page behavior changed.
+- **Verification:** `node tests/ecc-pr-review-trio-static.test.js`, `node --check` for both ECC scripts, and `git diff --check`.
+
 ### 2026-07-10 05:50 UTC - Pods trial founder answer contract (PR #952)
 
 - **PR:** [#952](https://github.com/dhnpmp-tech/dcp-platform/pull/952) (`codex/pods-trial-founder-answer-contract-2026-07-10`).

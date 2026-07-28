@@ -1283,7 +1283,10 @@ router.post('/heartbeat', heartbeatProviderLimiter, enforceHeartbeatHmac, (req, 
         }
 
         runStatement(`UPDATE providers SET
-          gpu_status = ?, provider_ip = ?, provider_hostname = ?, last_heartbeat = ?, status = ?,
+          gpu_status = ?, provider_ip = ?, provider_hostname = ?, last_heartbeat = ?,
+          -- security states are sticky: a quarantined/flagged host must not flip
+          -- back to online just because its daemon keeps heartbeating
+          status = CASE WHEN status IN ('flagged', 'suspended') THEN status ELSE ? END,
           p2p_peer_id = COALESCE(?, p2p_peer_id),
           gpu_name_detected = COALESCE(?, gpu_name_detected),
           gpu_vram_mib = COALESCE(?, gpu_vram_mib),
@@ -1712,7 +1715,8 @@ router.post('/:id/heartbeat', heartbeatProviderLimiter, (req, res) => {
         const now = new Date().toISOString();
 
         // Build provider update — include vram_total and model_loaded when provided (DCP-907)
-        const heartbeatUpdates = ["last_heartbeat = ?", "status = 'online'", "updated_at = ?"];
+        // security states are sticky — never un-flag a quarantined host via heartbeat
+        const heartbeatUpdates = ["last_heartbeat = ?", "status = CASE WHEN status IN ('flagged', 'suspended') THEN status ELSE 'online' END", "updated_at = ?"];
         const heartbeatParams = [now, now];
         if (vramTotalMb != null) {
             heartbeatUpdates.push('vram_mb = ?');
@@ -1993,6 +1997,64 @@ router.post('/:id/benchmark', validateBody(providerBenchmarkSchema), (req, res) 
 });
 
 // ============================================================================
+
+// ── Host mining_detected side-effects (task_a74c15efb7a0) ──────────────
+function handleMiningDetected(provider, details, hostname) {
+    try {
+        const oldStatus = provider.status;
+        // Keep suspended as suspended; otherwise flag. Log the REAL new status (HIGH-a).
+        const newStatus = (oldStatus === 'suspended') ? 'suspended' : 'flagged';
+        // Quarantine: stop dispatching paid jobs until human clears.
+        runStatement(
+            `UPDATE providers SET is_paused = 1,
+                status = ?,
+                updated_at = datetime('now')
+             WHERE id = ?`,
+            newStatus, provider.id
+        );
+        try {
+            runStatement(
+                `INSERT INTO provider_status_log (provider_id, old_status, new_status) VALUES (?, ?, ?)`,
+                provider.id, oldStatus || null, newStatus
+            );
+        } catch (_) { /* table may not exist in older DBs */ }
+
+        // Auto-create Mission Control task (dedupe 24h via external_id)
+        const externalId = `mining_detected:provider:${provider.id}`;
+        try {
+            const existing = db.get(
+                `SELECT id FROM mission_tasks
+                 WHERE external_id = ?
+                   AND status NOT IN ('done','cancelled')
+                   AND datetime(created_at) > datetime('now', '-1 day')`,
+                externalId
+            );
+            if (!existing) {
+                const taskId = `task_mine_${provider.id}_${Date.now().toString(36)}`;
+                const title = `HOST MINER detected on provider #${provider.id}${provider.name ? ' (' + provider.name + ')' : ''}`;
+                const body = (details || '').toString().slice(0, 4000);
+                // created_by NULL — avoid bogus 'system' assignee; no FK required
+                db.run(
+                    `INSERT INTO mission_tasks
+                     (id, title, description, status, priority, tier, source, external_id, created_by, created_at, updated_at)
+                     VALUES (?, ?, ?, 'todo', 'p0', 'critical', 'security', ?, NULL, datetime('now'), datetime('now'))`,
+                    taskId, title, body, externalId
+                );
+            }
+        } catch (e) {
+            console.warn('[mining_detected] mission task create failed:', e.message);
+        }
+
+        const provName = provider.name || `ID ${provider.id}`;
+        sendAlert(
+            'mining_detected',
+            `🚨 HOST MINER DETECTED\nProvider: ${provName} (ID ${provider.id})\nHost: ${hostname || 'unknown'}\nProvider quarantined (is_paused=1, status=flagged).\n\n${(details || '').toString().slice(0, 800)}`
+        ).catch((e) => console.error('[mining_detected] alert send failed:', e.message));
+    } catch (e) {
+        console.error('[mining_detected] handler error:', e);
+    }
+}
+
 // POST /api/providers/daemon-event - Log daemon events (crashes, job results, etc.)
 // ============================================================================
 router.post('/daemon-event', (req, res) => {
@@ -2030,8 +2092,13 @@ router.post('/daemon-event', (req, res) => {
             cleanTimestamp
         );
 
-        // Log critical events to console for immediate visibility
-        if (cleanSeverity === 'critical' || cleanSeverity === 'error') {
+        // Host miner: quarantine + MC task + alert (critical tier)
+        // mining_suspected (port-only / low-confidence) is logged above but does NOT quarantine.
+        if (cleanEventType === 'mining_detected') {
+            const fullProvider = db.get('SELECT id, name, status, is_paused FROM providers WHERE id = ?', provider.id) || provider;
+            handleMiningDetected(fullProvider, cleanDetails, normalizeString(hostname, { maxLen: 255 }) || null);
+        } else if (cleanSeverity === 'critical' || cleanSeverity === 'error') {
+            // Log critical events to console for immediate visibility
             console.warn(`[DAEMON EVENT] provider=${provider.id} type=${cleanEventType} severity=${cleanSeverity}: ${cleanDetails.substring(0, 200)}`);
             // Fire async alert — don't block response
             const provName = db.get('SELECT name FROM providers WHERE id = ?', provider.id)?.name || `ID ${provider.id}`;
@@ -4197,6 +4264,31 @@ function _buildInjectedDaemonScript(cleanKey) {
     return { daemonPath, injected, currentVersion };
 }
 
+function _buildMiningGuardArtifact() {
+    const guardPath = path.join(__dirname, '../../installers/mining_guard.py');
+    if (!fs.existsSync(guardPath)) return null;
+    const source = fs.readFileSync(guardPath, 'utf-8');
+    const buf = Buffer.from(source, 'utf-8');
+    return {
+        guardPath,
+        filename: 'mining_guard.py',
+        source,
+        size: buf.length,
+        sha256: crypto.createHash('sha256').update(buf).digest('hex'),
+    };
+}
+
+function _buildMiningGuardManifest(cleanKey) {
+    const artifact = _buildMiningGuardArtifact();
+    if (!artifact) return null;
+    return {
+        filename: artifact.filename,
+        download_url: `/api/providers/download/mining-guard?key=${encodeURIComponent(cleanKey)}`,
+        size: artifact.size,
+        sha256: artifact.sha256,
+    };
+}
+
 // ============================================================================
 // GET /api/providers/download/daemon - Serve dcp_daemon.py with injected key
 // ============================================================================
@@ -4221,11 +4313,14 @@ router.get('/download/daemon', (req, res) => {
         if (check_only === 'true') {
             recordActivationEvent(provider.id, 'daemon_download_check', { route: 'download/daemon' });
             const sha256 = crypto.createHash('sha256').update(Buffer.from(injected, 'utf-8')).digest('hex');
+            const miningGuard = _buildMiningGuardManifest(cleanKey);
+            if (!miningGuard) return res.status(503).json({ error: 'Mining guard artifact not found' });
             return res.json({
                 version: currentVersion,
                 min_version: MIN_DAEMON_VERSION,
-                download_url: `/api/providers/download/daemon?key=${cleanKey}`,
+                download_url: `/api/providers/download/daemon?key=${encodeURIComponent(cleanKey)}`,
                 sha256,
+                mining_guard: miningGuard,
             });
         }
 
@@ -4241,6 +4336,55 @@ router.get('/download/daemon', (req, res) => {
     } catch (error) {
         console.error('Daemon download error:', error);
         res.status(500).json({ error: 'Download failed' });
+    }
+});
+
+// ============================================================================
+// GET /api/providers/download/mining-guard - Serve mining_guard.py companion
+// ============================================================================
+router.get('/download/mining-guard', (req, res) => {
+    try {
+        const { check_only } = req.query;
+        const resolved = resolveProviderFromDownloadQuery(req);
+        if (resolved.error) return res.status(resolved.status).json({ error: resolved.error });
+        const cleanKey = resolved.apiKey;
+        const provider = { id: resolved.providerId };
+
+        const artifact = _buildMiningGuardArtifact();
+        if (!artifact) return res.status(404).json({ error: 'Mining guard file not found' });
+
+        if (check_only === 'true') {
+            recordActivationEvent(provider.id, 'mining_guard_download_check', { route: 'download/mining-guard' });
+            return res.json(_buildMiningGuardManifest(cleanKey));
+        }
+
+        recordActivationEvent(provider.id, 'mining_guard_downloaded', {
+            route: 'download/mining-guard',
+            filename: artifact.filename,
+            size_bytes: artifact.size,
+        });
+        res.setHeader('Content-Type', 'text/x-python');
+        res.setHeader('Content-Disposition', 'attachment; filename="mining_guard.py"');
+        res.send(artifact.source);
+    } catch (error) {
+        console.error('Mining guard download error:', error);
+        res.status(500).json({ error: 'Download failed' });
+    }
+});
+
+// ============================================================================
+// GET /api/providers/download/mining-guard/manifest - sha256 + size
+// ============================================================================
+router.get('/download/mining-guard/manifest', (req, res) => {
+    try {
+        const resolved = resolveProviderFromDownloadQuery(req);
+        if (resolved.error) return res.status(resolved.status).json({ error: resolved.error });
+        const manifest = _buildMiningGuardManifest(resolved.apiKey);
+        if (!manifest) return res.status(404).json({ error: 'Mining guard file not found' });
+        return res.json(manifest);
+    } catch (error) {
+        console.error('Mining guard manifest error:', error);
+        res.status(500).json({ error: 'Manifest failed' });
     }
 });
 
@@ -4309,10 +4453,13 @@ router.get('/download/daemon/manifest', (req, res) => {
 
         const buf = Buffer.from(built.injected, 'utf-8');
         const sha256 = crypto.createHash('sha256').update(buf).digest('hex');
+        const miningGuard = _buildMiningGuardManifest(cleanKey);
+        if (!miningGuard) return res.status(503).json({ error: 'Mining guard artifact not found' });
         return res.json({
             version: built.currentVersion,
             size: buf.length,
             sha256,
+            mining_guard: miningGuard,
         });
     } catch (error) {
         console.error('Daemon manifest error:', error);
@@ -8982,12 +9129,22 @@ router.post('/:id/agent-liveness', express.json({ limit: '16kb' }), (req, res) =
         );
 
         // Return the pull-trigger so Hermes knows whether to upload its log
-        // tail on the next tick.
+        // tail on the next tick. `recover` is the fleet watcher's out-of-band
+        // recovery channel (survives daemon death because the beacon is an
+        // independent cron): one-shot — cleared on delivery, the beacon script
+        // validates against its own local allowlist before acting.
         const row = db.get(
-            'SELECT wants_logs_at FROM provider_agent_liveness WHERE provider_id = ?',
+            'SELECT wants_logs_at, recover_action FROM provider_agent_liveness WHERE provider_id = ?',
             [providerId]
         );
-        return res.json({ ok: true, wants_logs_at: row?.wants_logs_at || null });
+        if (row?.recover_action) {
+            db.run('UPDATE provider_agent_liveness SET recover_action = NULL WHERE provider_id = ?', [providerId]);
+        }
+        return res.json({
+            ok: true,
+            wants_logs_at: row?.wants_logs_at || null,
+            recover: row?.recover_action ? { action: row.recover_action } : null,
+        });
     } catch (err) {
         console.error('[providers/:id/agent-liveness]', err);
         return res.status(500).json({ error: 'Failed to record agent liveness' });

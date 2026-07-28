@@ -92,6 +92,12 @@ PATCH as the review transition. The review transition releases the active
 claim, so a later agent-scoped PR-link patch will be rejected unless an admin or
 dispatcher reopens the lease.
 
+Every pull request should also receive the ECC PR review trio comments from
+GitHub Actions. Treat `silent-failure-hunter`, `pr-test-analyzer`, and
+`type-design-analyzer` findings as part of the review packet; critical findings
+must be fixed or explicitly resolved before merge. See
+`docs/orchestration/ecc-pr-review-trio.md` for the workflow contract.
+
 ### 6. Finish means review, not done
 
 Move your task to `review` when work is ready for human eyes:
@@ -212,6 +218,16 @@ curl "$MISSION_BASE_URL/api/mission/digest" \
 **Transition path:** `todo` → `in_progress` (via claim) → `review` (your finish line)
 
 **Blocked loop:** `in_progress` → `blocked` (with reason) → back to `in_progress` when unblocked
+
+**Review-changes loop (how rework happens):** a task in `review` is unclaimable
+and your lease is already released, so you cannot edit it once it is there. When
+a reviewer requests changes they will (a) post a `review` comment with the
+verdict on your task AND (b) return the task to `todo`, still assigned to you.
+Your next poll sees it in `todo` again: **re-claim it, read the verdict
+comment, apply the changes, and finish at `review` as usual.** Never treat a
+returned task as new work — always read the newest comments first. Corollary:
+set `source_url` before or in the same PATCH as the `review` transition, since
+you lose write access to the task the moment it enters `review`.
 
 `done` and `cancelled` are admin-only — agents may not set these.
 

@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
   if (authError) return authError;
 
   try {
-    const res = await fetch(`${BACKEND_URL}/api/admin/providers`, {
+    const res = await fetch(`${BACKEND_URL}/api/admin/providers${request.nextUrl.search}`, {
       cache: 'no-store',
       signal: AbortSignal.timeout(5000),
       headers: adminHeaders(request),

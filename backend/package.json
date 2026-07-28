@@ -81,6 +81,7 @@
     "test:load": "node tests/load/load-test.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
     "@aws-sdk/client-s3": "^3.700.0",
     "@aws-sdk/s3-request-presigner": "^3.700.0",
     "@supabase/supabase-js": "^2.43.0",
@@ -88,7 +89,7 @@
     "cors": "^2.8.5",
     "dockerode": "^4.0.2",
     "dotenv": "^17.4.2",
-    "express": "^4.18.2",
+    "express": "^4.22.2",
     "express-rate-limit": "^8.3.0",
     "pdfkit": "^0.15.0",
     "uuid": "^11.1.1",
@@ -101,7 +102,7 @@
     "supertest": "^7.2.2"
   },
   "optionalDependencies": {
-    "sharp": "^0.33.0"
+    "sharp": "^0.35.3"
   },
   "overrides": {
     "ws": "^8.21.0",

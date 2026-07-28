@@ -239,364 +239,224 @@ export default function RenterInvoicesPage() {
   const invoiceSummary = invoiceTotal || invoices.length
 
   return (
-    <div className="rt-app">
-      {/* ── Sidebar (inlined from renter-shell.js) ─────────────────── */}
-      <aside className={`rt-sb${navOpen ? ' on' : ''}`} id="rt-sb" data-page="invoices">
-        <div className="rt-sb-brand">
-          <span className="wm">
-            DCP<i>∞</i>
-          </span>
-          <span className="ctx">
-            <Bi en="Console" ar="لوحة التحكم" />
-          </span>
-        </div>
-
-        <div className="rt-ws">
-          <div className="rt-ws-btn">
-            <span className="av">{initials(accountName, renter?.email)}</span>
-            <span className="body">
-              <span className="nm">{accountName}</span>
-              <span className="sub">{accountSub}</span>
-            </span>
-          </div>
-        </div>
-
-        <div className="rt-wallet">
-          <div className="k">
-            <Bi en="Credit" ar="الرصيد" />
-          </div>
-          <div className="v">
-            <Bi en={`Credit ${fmtSar(balanceSar)}`} ar={`رصيد ${fmtSar(balanceSar)}`} />
-          </div>
-          <div className="row">
-            <span>
-              <Bi en="Held in active jobs" ar="محجوز في مهام نشطة" />
-            </span>
-            <b><Bi en={`${fmtSar(heldSar)} credit`} ar={`${fmtSar(heldSar)} رصيد`} /></b>
-          </div>
-          <div className="row">
-            <span>
-              <Bi en="Total invoiced" ar="إجمالي الفواتير" />
-            </span>
-            <b>SAR {fmtSar(totalSpentSar)}</b>
-          </div>
-          <Link className="topup" href="/renter/wallet">
-            <Bi en="+ Add credit" ar="+ إضافة رصيد" />
-          </Link>
-        </div>
-
-        <nav className="rt-nav">
-          {NAV.map((s) => (
-            <div key={s.sec}>
-              <div className="sec">
-                <Bi en={s.sec} ar={s.secAr} />
-              </div>
-              {s.items.map((it) => {
-                const active = it.k === CURRENT_PAGE
-                return (
-                  <Link
-                    key={it.k}
-                    href={it.href} target={it.href === '/docs' ? '_blank' : undefined} rel={it.href === '/docs' ? 'noopener noreferrer' : undefined}
-                    className={active ? 'on' : ''}
-                    aria-current={active ? 'page' : undefined}
-                  >
-                    <span className="ic">{it.ic}</span>
-                    <span>
-                      <Bi en={it.label} ar={it.labelAr} />
-                    </span>
-                    <span className="bd">{it.bd || ''}</span>
-                  </Link>
-                )
-              })}
-            </div>
-          ))}
-        </nav>
-
-        <div className="rt-sb-foot">
-          <div className="av">{initials(renter?.name || accountName, renter?.email)}</div>
-          <div className="who">
-            {renter?.name || accountName}
-            <span className="e">{renter?.email || 'Renter session required'}</span>
-          </div>
-          <span className="out" title="Sign out" role="button" tabIndex={0} style={{ cursor: 'pointer' }} onClick={() => { localStorage.removeItem('dc1_renter_key'); window.location.href = '/auth' }}>
-            ↱
-          </span>
-        </div>
-      </aside>
-
-      <div
-        className={`rt-backdrop${navOpen ? ' on' : ''}`}
-        id="rt-backdrop"
-        onClick={() => setNavOpen(false)}
-      />
-
-      <div>
-        {/* ── Topbar (inlined from renter-shell.js) ────────────────── */}
-        <header className="rt-tb" id="rt-tb" data-crumb="Invoices">
-          <button
-            className="mb-toggle"
-            id="mb-toggle"
-            aria-label="Menu"
-            type="button"
-            onClick={() => setNavOpen((v) => !v)}
-          >
-            ☰
-          </button>
-          <div className="crumb">
-            <span>{accountName}</span>
-            <span className="sep">/</span>
-            <span className="cur">
-              <Bi en="Invoices" ar="الفواتير" />
-            </span>
-          </div>
-          {loadState === 'ready' && (
-            <span className="pill">
-              <span className="d" /> <Bi en="API live" ar="الواجهة تعمل" />
-            </span>
-          )}
-          <button className="lang-pill" type="button" onClick={toggle} aria-label="Toggle language">
-            <span
-              style={{
-                background: lang === 'en' ? 'var(--ink)' : 'transparent',
-                color: lang === 'en' ? 'var(--bg)' : 'var(--ink)',
-              }}
-            >
-              EN
-            </span>
-            <span
-              style={{
-                background: lang === 'ar' ? 'var(--ink)' : 'transparent',
-                color: lang === 'ar' ? 'var(--bg)' : 'var(--ink)',
-              }}
-            >
-              ع
-            </span>
-          </button>
-          <Link className="keys" href="/renter/keys">
-            ⚷ <Bi en="API keys" ar="مفاتيح API" />
-          </Link>
-        </header>
-
-        <main className="rt-main">
-          <h1 className="rt-h1">
-            <Bi en="Your " ar="فواتيرك" />
-            <em style={{ fontStyle: 'italic', color: 'var(--teal)' }}>
-              <Bi en="invoices." ar="." />
-            </em>
-          </h1>
-          <div className="rt-h1-sub">
-            <span>
-              <Bi en="Live billing records from completed DCP jobs" ar="سجلات فوترة مباشرة من مهام DCP المكتملة" />
-            </span>
-            <span>
-              <Bi en="Rows loaded " ar="الصفوف المحملة " />
-              <b>{loadState === 'ready' ? invoiceSummary : '—'}</b>
-            </span>
-          </div>
-
-          {/* Billing entity */}
-          <div className="panel" style={{ marginTop: 36 }}>
-            <div className="panel-hd">
-              <div>
-                <h3>
-                  <Bi en="Billing entity" ar="الجهة المُفوترة" />
-                </h3>
-              </div>
-              <span className="btn-sec" aria-disabled="true">
-                <Bi en="Profile-backed" ar="من ملف الحساب" />
-              </span>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
-              <div>
-                <div
-                  style={{
-                    fontFamily: 'var(--mono)',
-                    fontSize: '10.5px',
-                    letterSpacing: '.14em',
-                    textTransform: 'uppercase',
-                    color: 'var(--mut)',
-                    marginBottom: 8,
-                  }}
-                >
-                  <Bi en="Bill to" ar="إلى" />
-                </div>
-                <div
-                  style={{
-                    fontFamily: 'var(--serif)',
-                    fontSize: '22px',
-                    lineHeight: 1.2,
-                    color: 'var(--ink)',
-                    marginBottom: 6,
-                  }}
-                >
-                  {accountName}
-                </div>
-                <div
-                  style={{
-                    fontFamily: 'var(--mono)',
-                    fontSize: '12.5px',
-                    lineHeight: 1.7,
-                    color: 'var(--ink-2)',
-                  }}
-                >
-                  {renter?.email || 'No renter session loaded'}
-                  <br />
-                  {renter?.phone || 'Phone not set'}
-                  <br />
-                  {renter?.use_case || 'Use case not set'}
-                  <br />
-                  Legal billing profile fields are not configured yet.
-                </div>
-              </div>
-              <div>
-                <div
-                  style={{
-                    fontFamily: 'var(--mono)',
-                    fontSize: '10.5px',
-                    letterSpacing: '.14em',
-                    textTransform: 'uppercase',
-                    color: 'var(--mut)',
-                    marginBottom: 8,
-                  }}
-                >
-                  <Bi en="From" ar="من" />
-                </div>
-                <div
-                  style={{
-                    fontFamily: 'var(--serif)',
-                    fontSize: '22px',
-                    lineHeight: 1.2,
-                    color: 'var(--ink)',
-                    marginBottom: 6,
-                  }}
-                >
-                  DC Power Solutions Company
-                </div>
-                <div
-                  style={{
-                    fontFamily: 'var(--mono)',
-                    fontSize: '12.5px',
-                    lineHeight: 1.7,
-                    color: 'var(--ink-2)',
-                  }}
-                >
-                  CR 7053667775<br />
-                  VAT 311102233400003<br />
-                  Riyadh, Saudi Arabia
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Invoice list */}
-          <div className="panel" style={{ marginTop: 28 }}>
-            <div className="panel-hd">
-              <div>
-                <h3>
-                  <Bi en="Invoice history" ar="سجل الفواتير" />
-                </h3>
-              </div>
-              <span
-                style={{
-                  fontFamily: 'var(--mono)',
-                  fontSize: '10.5px',
-                  letterSpacing: '.12em',
-                  textTransform: 'uppercase',
-                  color: 'var(--mut)',
-                }}
-              >
-                <Bi en="CSV export is available per invoice" ar="تصدير CSV متاح لكل فاتورة" />
-              </span>
-            </div>
-            {loadState === 'loading' && (
-              <div className="rt-empty">
-                <Bi en="Loading live invoice history..." ar="تحميل سجل الفواتير المباشر..." />
-              </div>
-            )}
-            {loadState === 'missing-key' && (
-              <div className="rt-empty">
-                <Bi en="Sign in with a renter API key to view invoices." ar="سجّل الدخول بمفتاح مستأجر لعرض الفواتير." />
-              </div>
-            )}
-            {loadState === 'error' && (
-              <div className="rt-empty" role="alert">
-                {error}
-              </div>
-            )}
-            {loadState === 'ready' && invoices.length === 0 && (
-              <div className="rt-empty">
-                <Bi en="No invoice rows yet. Completed jobs will appear here." ar="لا توجد فواتير بعد. ستظهر المهام المكتملة هنا." />
-              </div>
-            )}
-            <table className="tbl inv-tbl">
-              <thead>
-                <tr>
-                  <th>
-                    <Bi en="Invoice" ar="الفاتورة" />
-                  </th>
-                  <th>
-                    <Bi en="Period" ar="الفترة" />
-                  </th>
-                  <th>
-                    <Bi en="Source" ar="المصدر" />
-                  </th>
-                  <th style={{ textAlign: 'end' }}>
-                    <Bi en="Total" ar="الإجمالي" />
-                  </th>
-                  <th>
-                    <Bi en="Status" ar="الحالة" />
-                  </th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="inv-body">
-                {invoices.map((i) => {
-                  return (
-                    <tr key={i.id}>
-                      <td>
-                        <span className="nm">{i.id}</span>
-                      </td>
-                      <td>
-                        <span className="mono">{i.period}</span>
-                      </td>
-                      <td>
-                        <span className="mono">{i.jobType}</span>
-                        <span className="ms">{i.provider}</span>
-                      </td>
-                      <td>
-                        <span className="sar">
-                          {fmtSar(i.sub)}
-                          <span className="u">SAR</span>
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`stat ${i.status === 'paid' ? 'settled' : 'streaming'}`}>
-                          {i.status}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="actions">
-                          <a
-                            href={`${getApiBase()}/renters/me/invoices/${i.numericId}/csv`}
-                            onClick={(event) => {
-                              event.preventDefault()
-                              void downloadInvoiceCsv(i.numericId, i.id).catch((err) =>
-                                setError(err instanceof Error ? err.message : 'CSV export failed'),
-                              )
-                            }}
-                          >
-                            CSV ↓
-                          </a>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </main>
+    <main className="rt-main">
+      <h1 className="rt-h1">
+        <Bi en="Your " ar="فواتيرك" />
+        <em style={{ fontStyle: 'italic', color: 'var(--teal)' }}>
+          <Bi en="invoices." ar="." />
+        </em>
+      </h1>
+      <div className="rt-h1-sub">
+        <span>
+          <Bi en="Live billing records from completed DCP jobs" ar="سجلات فوترة مباشرة من مهام DCP المكتملة" />
+        </span>
+        <span>
+          <Bi en="Rows loaded " ar="الصفوف المحملة " />
+          <b>{loadState === 'ready' ? invoiceSummary : '—'}</b>
+        </span>
       </div>
-    </div>
+
+      {/* Billing entity */}
+      <div className="panel" style={{ marginTop: 36 }}>
+        <div className="panel-hd">
+          <div>
+            <h3>
+              <Bi en="Billing entity" ar="الجهة المُفوترة" />
+            </h3>
+          </div>
+          <span className="btn-sec" aria-disabled="true">
+            <Bi en="Profile-backed" ar="من ملف الحساب" />
+          </span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
+          <div>
+            <div
+              style={{
+                fontFamily: 'var(--mono)',
+                fontSize: '10.5px',
+                letterSpacing: '.14em',
+                textTransform: 'uppercase',
+                color: 'var(--mut)',
+                marginBottom: 8,
+              }}
+            >
+              <Bi en="Bill to" ar="إلى" />
+            </div>
+            <div
+              style={{
+                fontFamily: 'var(--serif)',
+                fontSize: '22px',
+                lineHeight: 1.2,
+                color: 'var(--ink)',
+                marginBottom: 6,
+              }}
+            >
+              {accountName}
+            </div>
+            <div
+              style={{
+                fontFamily: 'var(--mono)',
+                fontSize: '12.5px',
+                lineHeight: 1.7,
+                color: 'var(--ink-2)',
+              }}
+            >
+              {renter?.email || 'No renter session loaded'}
+              <br />
+              {renter?.phone || 'Phone not set'}
+              <br />
+              {renter?.use_case || 'Use case not set'}
+              <br />
+              Legal billing profile fields are not configured yet.
+            </div>
+          </div>
+          <div>
+            <div
+              style={{
+                fontFamily: 'var(--mono)',
+                fontSize: '10.5px',
+                letterSpacing: '.14em',
+                textTransform: 'uppercase',
+                color: 'var(--mut)',
+                marginBottom: 8,
+              }}
+            >
+              <Bi en="From" ar="من" />
+            </div>
+            <div
+              style={{
+                fontFamily: 'var(--serif)',
+                fontSize: '22px',
+                lineHeight: 1.2,
+                color: 'var(--ink)',
+                marginBottom: 6,
+              }}
+            >
+              DC Power Solutions Company
+            </div>
+            <div
+              style={{
+                fontFamily: 'var(--mono)',
+                fontSize: '12.5px',
+                lineHeight: 1.7,
+                color: 'var(--ink-2)',
+              }}
+            >
+              CR 7053667775<br />
+              VAT 311102233400003<br />
+              Riyadh, Saudi Arabia
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Invoice list */}
+      <div className="panel" style={{ marginTop: 28 }}>
+        <div className="panel-hd">
+          <div>
+            <h3>
+              <Bi en="Invoice history" ar="سجل الفواتير" />
+            </h3>
+          </div>
+          <span
+            style={{
+              fontFamily: 'var(--mono)',
+              fontSize: '10.5px',
+              letterSpacing: '.12em',
+              textTransform: 'uppercase',
+              color: 'var(--mut)',
+            }}
+          >
+            <Bi en="CSV export is available per invoice" ar="تصدير CSV متاح لكل فاتورة" />
+          </span>
+        </div>
+        {loadState === 'loading' && (
+          <div className="rt-empty">
+            <Bi en="Loading live invoice history..." ar="تحميل سجل الفواتير المباشر..." />
+          </div>
+        )}
+        {loadState === 'missing-key' && (
+          <div className="rt-empty">
+            <Bi en="Sign in with a renter API key to view invoices." ar="سجّل الدخول بمفتاح مستأجر لعرض الفواتير." />
+          </div>
+        )}
+        {loadState === 'error' && (
+          <div className="rt-empty" role="alert">
+            {error}
+          </div>
+        )}
+        {loadState === 'ready' && invoices.length === 0 && (
+          <div className="rt-empty">
+            <Bi en="No invoice rows yet. Completed jobs will appear here." ar="لا توجد فواتير بعد. ستظهر المهام المكتملة هنا." />
+          </div>
+        )}
+        <table className="tbl inv-tbl">
+          <thead>
+            <tr>
+              <th>
+                <Bi en="Invoice" ar="الفاتورة" />
+              </th>
+              <th>
+                <Bi en="Period" ar="الفترة" />
+              </th>
+              <th>
+                <Bi en="Source" ar="المصدر" />
+              </th>
+              <th style={{ textAlign: 'end' }}>
+                <Bi en="Total" ar="الإجمالي" />
+              </th>
+              <th>
+                <Bi en="Status" ar="الحالة" />
+              </th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="inv-body">
+            {invoices.map((i) => {
+              return (
+                <tr key={i.id}>
+                  <td>
+                    <span className="nm">{i.id}</span>
+                  </td>
+                  <td>
+                    <span className="mono">{i.period}</span>
+                  </td>
+                  <td>
+                    <span className="mono">{i.jobType}</span>
+                    <span className="ms">{i.provider}</span>
+                  </td>
+                  <td>
+                    <span className="sar">
+                      {fmtSar(i.sub)}
+                      <span className="u">SAR</span>
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`stat ${i.status === 'paid' ? 'settled' : 'streaming'}`}>
+                      {i.status}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="actions">
+                      <a
+                        href={`${getApiBase()}/renters/me/invoices/${i.numericId}/csv`}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          void downloadInvoiceCsv(i.numericId, i.id).catch((err) =>
+                            setError(err instanceof Error ? err.message : 'CSV export failed'),
+                          )
+                        }}
+                      >
+                        CSV ↓
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </main>
   )
 }

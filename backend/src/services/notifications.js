@@ -89,7 +89,7 @@ async function sendAlert(event, details) {
 
   // Build message
   const emoji = {
-    provider_crash: '💥', stuck_job: '⏳', job_failed: '❌',
+    provider_crash: '💥', mining_detected: '🚨', stuck_job: '⏳', job_failed: '❌',
     withdrawal_pending: '💰', health_degraded: '⚠️', critical_error: '🚨',
   };
   const icon = emoji[event] || '🔔';

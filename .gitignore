@@ -185,3 +185,8 @@ ops/.watchdog-env.*
 
 # Inert "prepared" feature stubs (decide PR-or-delete per file)
 **/*.prepared
+.playwright-cli/
+.verify/
+output/
+backend/.verify/
+docs/reports/

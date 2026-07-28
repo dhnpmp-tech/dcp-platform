@@ -40,6 +40,200 @@ and payment/refund disputes.
   before public-facing approval.
 - **Verification:** `node tests/terms-auto-topup-policy-static.test.js`;
   `npm run build`; `git diff --check`.
+### Pending - `refactor(renter): centralize console shell - PR #977`
+
+**PR:** [#977](https://github.com/dhnpmp-tech/dcp-platform/pull/977) (`agent/codex/task_3e63d68f6ec4-renter-console-shell`).
+
+**What:** Consolidates the v2 renter console sidebar/topbar into one persistent
+route layout so renter pages no longer drift in navigation, account chrome, or
+credit actions.
+
+- **Shared layout:** Added `app/(site)/renter/layout.tsx` and
+  `app/(site)/renter/RenterShell.tsx` as the single owner of renter sidebar,
+  mobile drawer, topbar, active-route highlighting, language toggle, sign-out,
+  account identity, balance, held-credit, total-spend, and `+ Add credit` CTA.
+- **Navigation parity:** The canonical renter nav now appears on every renter
+  page: Overview, Playground, API keys, Usage, GPU Pods, Fine-Tuning, Batch,
+  Credit, Invoices, Settings, and Docs. The wallet label is consistently
+  `Credit`, and Batch no longer appears only on some product pages.
+- **Page cleanup:** Removed duplicated sidebar/topbar JSX from Dashboard,
+  Playground, API keys, Usage, GPU Pods, Fine-Tuning, Batch, Credit, Invoices,
+  and Settings. Deleted the old pod-local `PodShell.tsx` so there is no second
+  shell source under the pods route.
+- **CSS cleanup:** Promoted shared renter shell/status helpers into
+  `app/(site)/styles/renter-shell.css` and removed folded `.rt-app`, `.rt-sb`,
+  `.rt-nav`, `.rt-tb`, and `.rt-backdrop` blocks from per-page stylesheets.
+- **Regression guard:** Extended `tests/v2-renter-console-static.test.js` to
+  assert that renter pages render only their `rt-main` column, shared shell CSS
+  is canonical, the pod-local shell is gone, and the shared nav/account/credit
+  requirements stay present.
+- **Safety:** Frontend layout/CSS/test/changelog/docs only. No auth,
+  middleware, billing, payments, provider operations, inference routing,
+  Mission Control API, or live infrastructure changed.
+
+### Pending - `docs(security): add dcp-agent and desktop launch audit - PR #969`
+
+**PR:** [#969](https://github.com/dhnpmp-tech/dcp-platform/pull/969) (`agent/codex/task_0a1f17750f41-cross-repo-audits`).
+
+**What:** Read-only cross-repo launch audit for the provider-side desktop and
+agent chain before public native download links are promoted.
+
+- **Scope:** Added
+  `docs/security/audits/2026-07-26-dcp-agent-desktop-launch-audit.md`, pinned to
+  `DCP-SA/dcp-agent` `origin/main` at
+  `cfb8f29143fcd59493a23861e2c6bac4a1d0c187` and `DCP-SA/dcp-desktop`
+  `origin/main` at `9f56ba469598edeffda1e67409990f618836c9cb`.
+- **Findings:** Captures provider-key process-argument exposure, broad Linux
+  WireGuard privilege boundary, fail-open desktop API-key validation, unsigned
+  shell-installer daemon download, installer key echo/update hygiene, dashboard
+  polling without backoff, desktop version/release drift, stale `hermes-agent`
+  metadata, workflow permission scope, and provider-facing CTA polish.
+- **Next PR order:** Documents the recommended split: desktop credential handoff,
+  WireGuard helper, fail-closed validation, agent daemon verification, installer
+  hygiene, polling backoff, release metadata, then public download buttons.
+- **Regression guard:** Added `tests/dcp-agent-desktop-audit-static.test.js` to
+  keep source SHAs, evidence refs, major findings, changelog coverage, and
+  secret-free audit wording intact.
+- **Safety:** Docs/test/changelog only. No live provider, billing, payment,
+  WireGuard, Node 2, desktop release, production environment, or download-link
+
+### Pending - `feat(docs): add public docs-site launch map - PR #966`
+
+**PR:** [#966](https://github.com/dhnpmp-tech/dcp-platform/pull/966) (`agent/codex/task_acdd2649a8a4-docs-site`).
+
+**What:** Adds the public docs-site foundation requested for `docs.dcp.sa`
+without introducing a second docs stack or private handoff content.
+
+- **Docs entry point:** `docs.dcp.sa/` now permanently redirects to the
+  canonical `/docs` route.
+- **Launch structure:** The `/docs` page now has explicit sections for
+  Quickstart, OpenAI-compatible API, Provider onboarding, Models, Pricing, and
+  SDKs, with a compact section map at the top.
+- **Provider flow clarity:** Provider docs point to `/earn`, `/provider-setup`,
+  and `/provider/dashboard` instead of mixing provider and renter onboarding.
+- **Catalog honesty:** Model docs tell clients to read `GET /v1/models` and
+  treat empty/degraded capacity as an operational state instead of hardcoding
+  provider availability.
+- **SDK honesty:** SDK guidance uses the official OpenAI SDKs with DCP's base
+  URL; no unshipped DCP-specific SDK package is presented as required.
+- **Regression guards:** Static docs and redirect tests now cover the new
+  anchors, `docs.dcp.sa` redirect, launch copy, and stale `qwen3-4b` example
+  removal.
+- **Safety:** Frontend docs/config/test/changelog only. No auth, billing,
+  payments, routing, provider operations, live infrastructure, or production
+  environment variables changed.
+
+### Pending - `ci(pr): add ECC review trio gate - PR #968`
+
+**PR:** [#968](https://github.com/dhnpmp-tech/dcp-platform/pull/968) (`agent/codex/task_b77bcb185e70-ecc-pr-review-trio`).
+
+**What:** Adds the ECC pull request review trio as a standard GitHub Actions
+check for `dhnpmp-tech/dcp-platform` PRs.
+
+- **Workflow:** Added `.github/workflows/ecc-pr-review-trio.yml`, running
+  `silent-failure-hunter`, `pr-test-analyzer`, and `type-design-analyzer` on
+  PR opened/synchronize/reopened/ready-for-review events.
+- **Trusted execution:** The workflow uses `pull_request_target` for PR comment
+  permissions, but runs only trusted base-branch scripts against a separate PR
+  checkout so untrusted PR code does not receive the write token.
+- **Analyzer:** Added dependency-free Node review scripts that inspect changed
+  lines for empty catches, swallowed promise rejections, missing high-risk test
+  coverage, and new TypeScript escape hatches.
+- **Comments:** Each agent maintains one sticky PR comment and uploads its
+  Markdown report as a short-lived workflow artifact.
+- **Docs/tests:** Added orchestration docs, overview updates, and static
+  regression coverage for the workflow contract and analyzer behavior.
+- **Safety:** CI/docs/test/script-only. No production deploy, auth, billing,
+  payments, provider operations, routing, Mission Control API behavior, live
+  infrastructure, or environment variables changed.
+### Pending - `fix(admin): hide soft-deleted providers from dashboard - PR #965`
+
+**PR:** [#965](https://github.com/dhnpmp-tech/dcp-platform/pull/965) (`agent/codex/task_54cdc6ae7fb2-runpod-cleanup`).
+
+**What:** Tightens the admin provider dashboard cleanup path so provider rows
+that have been soft-deleted no longer appear in normal provider counts or lists.
+
+- **Dashboard truth:** `GET /api/admin/providers` now filters
+  `providers.deleted_at IS NULL` by default, so soft-deleted partial/test
+  registrations do not keep showing up as real providers.
+- **Ops escape hatch:** Added explicit `include_deleted=1|true|yes` support for
+  operators who need to inspect tombstoned provider rows.
+- **Proxy parity:** The Next.js `/api/admin/providers` proxy now forwards query
+  parameters to the backend instead of silently dropping ops filters.
+- **Dependency gate:** Refreshed backend production dependencies to keep the
+  payout dependency audit green: Express stays on the 4.x line while resolving
+  the patched `body-parser` tree, and optional `sharp` moves to `^0.35.3`.
+- **Regression guard:** Added integration coverage proving soft-deleted
+  providers are hidden by default and visible only through `include_deleted=1`.
+- **Production note:** Live read-only inspection on 2026-07-26 found 23
+  non-deleted providers and 1 already-deleted provider, not the stale "38 dead"
+  count from the Mission task. No live provider mutation is bundled in this PR.
+- **Safety:** Admin provider-list visibility only; no provider registration,
+  approval, routing, daemon, WireGuard, inference, billing, payment, payout, or
+  renter behavior changed.
+
+### Pending - `fix(mission): persist task review tier - PR #964`
+
+**PR:** [#964](https://github.com/dhnpmp-tech/dcp-platform/pull/964) (`agent/codex/task_6199af435165-mission-tier`).
+
+**What:** Fixes Mission Control task criticality so API-created and API-edited
+tasks can carry the review tier that drives the code-authority ladder.
+
+- **API contract:** `POST /api/mission/tasks` now accepts
+  `tier=low|standard|critical`, defaults invalid create input to `standard`,
+  and persists the value in `mission_tasks.tier`.
+- **Review safety:** `PATCH /api/mission/tasks/:id` now accepts valid tier
+  updates and ignores invalid tier values instead of erasing an existing tier.
+- **Regression guard:** Added route coverage for creating a `critical` task,
+  defaulting invalid create input to `standard`, updating to `low`, and proving
+  an invalid patch does not downgrade the stored tier.
+- **Safety:** Mission Control task metadata only; no inference routing, provider
+  operations, billing, payments, payouts, renter balances, or public site
+  behavior changed.
+
+### Pending - `docs(backend): evaluate Resend to AWS SES migration - PR #961`
+
+**PR:** [#961](https://github.com/dhnpmp-tech/dcp-platform/pull/961) (`agent/codex/task_950fbc5863d2-resend-ses-evaluation`).
+
+**What:** Captures the DCP-specific email-provider decision so the team does not
+migrate transactional email based on stale SES free-tier assumptions.
+
+- **Evaluation:** Added `docs/backend/resend-to-ses-evaluation-2026-07-26.md`
+  with current Resend/AWS SES pricing notes, DCP email-code inventory, migration
+  work required, future acceptance tests, and the recommendation to keep Resend
+  for launch.
+- **Stale assumption guard:** The doc explicitly says the old 62K/month SES
+  free-email assumption is not safe for launch planning without account-specific
+  AWS validation.
+- **Regression guard:** Added `tests/resend-ses-evaluation-static.test.js` so
+  future edits keep the source links, thresholds, affected files, SES sandbox,
+  DKIM, bounce/complaint, and no-flip-now decisions visible.
+- **Safety:** Docs/test-only; no email provider, login, magic-link delivery,
+  notifications, billing, payments, provider operations, routing, or production
+  environment variables changed.
+### Pending - `docs(compliance): add ZATCA Phase 2 readiness audit - PR #960`
+
+**PR:** [#960](https://github.com/dhnpmp-tech/dcp-platform/pull/960) (`agent/codex/task_post_zatca_phase2_audit-zatca-readiness`).
+
+**What:** Audit-only ZATCA Phase 2/FATOORA readiness pass for DCP paid flows.
+
+- **Official-source grounding:** Added a compliance audit that cites ZATCA's
+  e-invoicing portal, detailed guideline, XML implementation standard, security
+  features standard, and Moyasar payment/invoice/refund/payout API docs.
+- **DCP flow mapping:** Identifies renter top-ups, auto top-ups, inference usage
+  invoices, refund requests, and provider payouts as the relevant money/tax
+  surfaces to classify before public enterprise billing.
+- **Readiness result:** Documents that the repo has payment, refund, payout,
+  ledger, and internal invoice evidence rails, but no ZATCA tax-invoice ledger,
+  UBL XML generation, CSID/key lifecycle, FATOORA clearance/reporting,
+  credit-note generation, or immutable XML/PDF-A-3 archive.
+- **Moyasar boundary:** Records that public Moyasar docs prove payment/payout
+  rails, not merchant-side ZATCA clearance/reporting on DCP's behalf.
+- **Safety:** Docs/test/changelog only. No payment, balance, refund, payout,
+  invoice, admin, routing, provider, renter, or production behavior changed.
+  Requires finance/legal review before operational use.
+- **Verification:** `node tests/zatca-readiness-audit-static.test.js`;
+  `git diff --check`.
 
 ### Pending - `docs(orchestration): clarify mission PR-link order - PR #957`
 

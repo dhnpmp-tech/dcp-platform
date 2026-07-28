@@ -194,6 +194,7 @@ function requireAgentIdentity(req, res, next) {
 
 const TASK_STATUSES    = ['todo','in_progress','blocked','review','done','cancelled'];
 const TASK_PRIORITIES  = ['p0','p1','p2','p3'];
+const TASK_TIERS       = ['low','standard','critical'];
 const GOAL_STATUSES    = ['active','paused','done','dropped'];
 const MS_STATUSES      = ['planned','in_progress','done','dropped'];
 
@@ -360,12 +361,14 @@ router.post('/tasks', requireWriteAuth, (req, res) => {
   const id = newId('task');
   const status   = oneOf(req.body?.status,   TASK_STATUSES,   'todo');
   const priority = oneOf(req.body?.priority, TASK_PRIORITIES, 'p2');
+  const tier     = oneOf(req.body?.tier,     TASK_TIERS,      'standard');
   const fields = {
     id,
     title,
     description:    clean(req.body?.description, 8000),
     status,
     priority,
+    tier,
     assignee_id:    clean(req.body?.assignee_id, 100),
     milestone_id:   clean(req.body?.milestone_id, 100),
     goal_id:        clean(req.body?.goal_id, 100),
@@ -378,11 +381,11 @@ router.post('/tasks', requireWriteAuth, (req, res) => {
   };
   db.run(
     `INSERT INTO mission_tasks
-     (id, title, description, status, priority, assignee_id, milestone_id, goal_id,
+     (id, title, description, status, priority, tier, assignee_id, milestone_id, goal_id,
       created_by, due_date, blocked_reason, source, source_url, external_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     fields.id, fields.title, fields.description, fields.status, fields.priority,
-    fields.assignee_id, fields.milestone_id, fields.goal_id,
+    fields.tier, fields.assignee_id, fields.milestone_id, fields.goal_id,
     fields.created_by, fields.due_date, fields.blocked_reason,
     fields.source, fields.source_url, fields.external_id
   );
@@ -401,6 +404,7 @@ router.patch('/tasks/:id', requireWriteAuth, (req, res) => {
     description:    { fn: v => clean(v, 8000) },
     status:         { fn: v => oneOf(v, TASK_STATUSES, null) },
     priority:       { fn: v => oneOf(v, TASK_PRIORITIES, null) },
+    tier:           { fn: v => oneOf(v, TASK_TIERS, undefined) },
     assignee_id:    { fn: v => clean(v, 100) },
     milestone_id:   { fn: v => clean(v, 100) },
     goal_id:        { fn: v => clean(v, 100) },
@@ -626,9 +630,14 @@ router.post('/tasks/:id/comments', requireWriteAuth, (req, res) => {
   if (!task) return res.status(404).json({ error: 'task not found' });
   const body = clean(req.body?.body, 8000);
   if (!body) return res.status(400).json({ error: 'body required' });
+  // Scoped agent keys MUST NOT spoof author_id (impersonation risk).
+  // Force attribution to the key identity; honor body.author_id only for admin/legacy.
+  const authorId = (req.missionAgent && req.missionAgent.assignee_id)
+    ? req.missionAgent.assignee_id
+    : (clean(req.body?.author_id, 100) || null);
   const id = addComment(
     req.params.id,
-    clean(req.body?.author_id, 100),
+    authorId,
     body,
     clean(req.body?.kind, 50) || 'comment',
     clean(req.body?.source, 50) || 'ui'

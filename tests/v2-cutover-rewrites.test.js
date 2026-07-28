@@ -24,6 +24,15 @@ async function run() {
   const { redirects, rewrites } = await loadConfig();
   const redirectSources = redirects.map((r) => r.source);
   const redirectMap = new Map(redirects.map((r) => [r.source, r.destination]));
+  const docsHostRedirect = redirects.find((r) => (
+    r.source === '/' &&
+    r.destination === '/docs' &&
+    Array.isArray(r.has) &&
+    r.has.some((condition) => condition.type === 'host' && condition.value === 'docs.dcp.sa')
+  ));
+
+  assert(docsHostRedirect, 'docs.dcp.sa root should permanently redirect to the canonical /docs route');
+  assert.strictEqual(docsHostRedirect.permanent, true, 'docs.dcp.sa root redirect should be permanent');
 
   // /v2/* -> clean ROOT (the equity-transfer 308s).
   assert.strictEqual(redirectMap.get('/v2/home'), '/', 'legacy /v2/home should 308 to the root home');
@@ -36,7 +45,11 @@ async function run() {
   assert.strictEqual(redirectMap.get('/v2/admin'), '/admin', 'legacy single-page /v2/admin should 308 to the canonical /admin console');
   assert.strictEqual(redirectMap.get('/v2/renter/:path*'), '/renter/:path*', 'legacy /v2/renter/* should 308 to the root renter console');
   assert.strictEqual(redirectMap.get('/v2/provider/:path*'), '/provider/:path*', 'legacy /v2/provider/* should 308 to the root provider console');
-  assert.strictEqual(redirectMap.get('/v2/:path*'), '/:path*', 'a catch-all should sweep any stray /v2/* to its root twin');
+  assert.strictEqual(
+    redirectMap.get('/v2/:path((?!home$).*)'),
+    '/:path',
+    'a guarded catch-all should sweep stray /v2/* routes to their root twin without shadowing /v2/home'
+  );
 
   // Every /v2/* redirect must be permanent (308) so engines treat root as canonical.
   redirects

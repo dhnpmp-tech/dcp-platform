@@ -19,10 +19,10 @@ function seedTask(over = {}) {
   const id = `task_${Math.random().toString(16).slice(2, 10)}`;
   db.run(
     `INSERT INTO mission_tasks
-     (id, title, status, priority, assignee_id, claimed_by, claimed_at, lease_expires_at, external_id)
-     VALUES (?, 'RT', ?, 'p2', ?, ?, ?, ?, ?)`,
-    id, over.status || 'todo', over.assignee_id ?? null, over.claimed_by ?? null,
-    over.claimed_at ?? null, over.lease_expires_at ?? null, over.external_id ?? null
+     (id, title, status, priority, tier, assignee_id, claimed_by, claimed_at, lease_expires_at, external_id)
+     VALUES (?, 'RT', ?, 'p2', ?, ?, ?, ?, ?, ?)`,
+    id, over.status || 'todo', over.tier || 'standard', over.assignee_id ?? null,
+    over.claimed_by ?? null, over.claimed_at ?? null, over.lease_expires_at ?? null, over.external_id ?? null
   );
   return id;
 }
@@ -61,6 +61,24 @@ describe('mission task routes (claim protocol + filters)', () => {
     const matched = res.body.tasks.filter((t) => t.title === 'RT');
     expect(matched).toHaveLength(1);
     expect(matched[0].id).toBe(wanted);
+  });
+
+  it('POST /tasks persists a valid mission tier and defaults invalid tier to standard', async () => {
+    const critical = await request(app)
+      .post('/api/mission/tasks')
+      .set(LEGACY)
+      .send({ title: 'RT', tier: 'critical', priority: 'p1' });
+    expect(critical.status).toBe(201);
+    expect(critical.body.task.tier).toBe('critical');
+    expect(db.get(`SELECT tier FROM mission_tasks WHERE id = ?`, critical.body.task.id).tier).toBe('critical');
+
+    const invalid = await request(app)
+      .post('/api/mission/tasks')
+      .set(LEGACY)
+      .send({ title: 'RT', tier: 'urgent' });
+    expect(invalid.status).toBe(201);
+    expect(invalid.body.task.tier).toBe('standard');
+    expect(db.get(`SELECT tier FROM mission_tasks WHERE id = ?`, invalid.body.task.id).tier).toBe('standard');
   });
 
   it('POST /tasks/:id/claim with legacy shared key → 403 agent_identity_required', async () => {
@@ -139,6 +157,28 @@ describe('mission task routes (claim protocol + filters)', () => {
     expect(res.body.task.lease_expires_at).toBeNull();
     // assignee_id is intentionally KEPT — review still belongs to the agent
     expect(res.body.task.assignee_id).toBe('codex');
+  });
+
+  it('PATCH /tasks/:id updates valid mission tier and ignores invalid tier', async () => {
+    const id = seedTask({ tier: 'critical' });
+    const low = await request(app)
+      .patch(`/api/mission/tasks/${id}`)
+      .set(LEGACY)
+      .send({ tier: 'low' });
+    expect(low.status).toBe(200);
+    expect(low.body.task.tier).toBe('low');
+
+    const invalid = await request(app)
+      .patch(`/api/mission/tasks/${id}`)
+      .set(LEGACY)
+      .send({ tier: 'urgent', source_url: 'https://github.com/dhnpmp-tech/dcp-platform/pull/999' });
+    expect(invalid.status).toBe(200);
+    expect(invalid.body.task.tier).toBe('low');
+    expect(invalid.body.task.source_url).toBe('https://github.com/dhnpmp-tech/dcp-platform/pull/999');
+
+    const row = db.get(`SELECT tier, source_url FROM mission_tasks WHERE id = ?`, id);
+    expect(row.tier).toBe('low');
+    expect(row.source_url).toBe('https://github.com/dhnpmp-tech/dcp-platform/pull/999');
   });
 });
 
@@ -417,5 +457,65 @@ describe('mission scope enforcement (route-level)', () => {
     expect(res.body.error).toBe('agent_scope_forbidden');
     // Task must still exist
     expect(db.get(`SELECT id FROM mission_tasks WHERE id = ?`, id)).toBeTruthy();
+  });
+});
+
+
+// --- Comment author attribution (scoped agent vs admin/legacy) ---
+describe('POST /tasks/:id/comments author attribution', () => {
+  let agentKey;
+
+  beforeAll(() => {
+    db.run(`INSERT OR IGNORE INTO mission_assignees (id, display_name, kind, active)
+            VALUES ('codex','Codex','agent',1)`);
+    agentKey = keys.issueKey({ assignee_id: 'codex', scopes: 'agent' }).rawKey;
+  });
+
+  beforeEach(() => {
+    db.run(`DELETE FROM mission_task_comments WHERE task_id IN (SELECT id FROM mission_tasks WHERE title = 'RT')`);
+    db.run(`DELETE FROM mission_tasks WHERE title = 'RT'`);
+  });
+
+  it('scoped agent comment forces author_id to key identity (ignores spoofed body.author_id)', async () => {
+    const id = seedTask({ assignee_id: 'codex', status: 'in_progress', claimed_by: 'codex' });
+    const res = await request(app)
+      .post(`/api/mission/tasks/${id}/comments`)
+      .set({ 'x-mission-agent-key': agentKey })
+      .send({ body: 'checkpoint', author_id: 'peter' });
+    expect(res.status).toBe(201);
+    expect(res.body.comment.author_id).toBe('codex');
+    expect(res.body.comment.body).toBe('checkpoint');
+    const row = db.get(`SELECT author_id FROM mission_task_comments WHERE id = ?`, res.body.comment.id);
+    expect(row.author_id).toBe('codex');
+  });
+
+  it('scoped agent comment with omitted author_id still attributes to key identity', async () => {
+    const id = seedTask({ assignee_id: 'codex', status: 'in_progress', claimed_by: 'codex' });
+    const res = await request(app)
+      .post(`/api/mission/tasks/${id}/comments`)
+      .set({ 'x-mission-agent-key': agentKey })
+      .send({ body: 'started' });
+    expect(res.status).toBe(201);
+    expect(res.body.comment.author_id).toBe('codex');
+  });
+
+  it('admin/legacy comment keeps passed author_id', async () => {
+    const id = seedTask();
+    const res = await request(app)
+      .post(`/api/mission/tasks/${id}/comments`)
+      .set(LEGACY)
+      .send({ body: 'admin note', author_id: 'peter' });
+    expect(res.status).toBe(201);
+    expect(res.body.comment.author_id).toBe('peter');
+  });
+
+  it('admin/legacy comment with omitted author_id stays null', async () => {
+    const id = seedTask();
+    const res = await request(app)
+      .post(`/api/mission/tasks/${id}/comments`)
+      .set(LEGACY)
+      .send({ body: 'anonymous admin note' });
+    expect(res.status).toBe(201);
+    expect(res.body.comment.author_id).toBeNull();
   });
 });

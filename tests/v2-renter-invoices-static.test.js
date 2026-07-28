@@ -29,10 +29,11 @@ for (const text of forbidden) {
   assert(!source.includes(text), `v2 renter invoices must not ship prototype data or fake controls: ${text}`);
 }
 
-assert(source.includes('/renters/me?key='), 'v2 renter invoices should load renter account data');
-assert(source.includes('/renters/balance?key='), 'v2 renter invoices should load wallet summary data');
-assert(source.includes('/renters/me/invoices?key='), 'v2 renter invoices should load invoice history from the backend');
-assert(source.includes('/renters/me/invoices/${i.numericId}/csv?key='), 'v2 renter invoices should link to the real CSV invoice export route');
+assert(source.includes("const headers = { 'x-renter-key': key }"), 'v2 renter invoices should use header-authenticated renter requests');
+assert(source.includes('`${base}/renters/me`'), 'v2 renter invoices should load renter account data');
+assert(source.includes('`${base}/renters/balance`'), 'v2 renter invoices should load wallet summary data');
+assert(source.includes('`${base}/renters/me/invoices?limit=50`'), 'v2 renter invoices should load invoice history from the backend');
+assert(source.includes('`${getApiBase()}/renters/me/invoices/${numericId}/csv`'), 'v2 renter invoices should export CSV invoices through the real backend route');
 assert(source.includes("loadState === 'missing-key'"), 'v2 renter invoices should render an explicit missing-key state');
 assert(source.includes('No invoice rows yet'), 'v2 renter invoices should render an honest empty invoice state');
 assert(source.includes('Legal billing profile fields are not configured yet'), 'v2 renter invoices should not invent CR/VAT/address data');
