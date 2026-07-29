@@ -43,18 +43,62 @@ async function signSession(role: string, expSeconds: number): Promise<string> {
   return `${payload}.${base64url(sig)}`
 }
 
-/** POST /api/session — sets the session cookie after successful login */
+const BACKEND_URL =
+  process.env.BACKEND_URL || process.env.DC1_BACKEND_URL || 'https://api.dcp.sa'
+
+/**
+ * SECURITY: cookie is HMAC-signed, but that alone does not prove identity —
+ * anyone could POST {role:"admin"} and receive a valid signed cookie.
+ * Validate a real credential against the backend before minting.
+ */
+async function validateCredential(role: string, apiKey: string): Promise<boolean> {
+  if (!apiKey) return false
+  try {
+    if (role === 'admin') {
+      const res = await fetch(`${BACKEND_URL}/api/admin/dashboard`, {
+        headers: { 'x-admin-token': apiKey },
+        cache: 'no-store',
+      })
+      return res.ok
+    }
+    if (role === 'provider') {
+      const res = await fetch(
+        `${BACKEND_URL}/api/providers/me?key=${encodeURIComponent(apiKey)}`,
+        { cache: 'no-store' },
+      )
+      return res.ok
+    }
+    // renter - Bearer preferred; ?key= still accepted by backend
+    const res = await fetch(`${BACKEND_URL}/api/renters/me`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      cache: 'no-store',
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+/** POST /api/session — sets the session cookie after verifying the credential */
 export async function POST(request: NextRequest) {
-  let body: { role?: string } = {}
+  let body: { role?: string; apiKey?: string } = {}
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { role } = body
+  const { role, apiKey } = body
   if (!role || !VALID_ROLES.has(role)) {
     return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
+  }
+  if (!apiKey || typeof apiKey !== 'string') {
+    return NextResponse.json({ error: 'Missing credential' }, { status: 401 })
+  }
+
+  const ok = await validateCredential(role, apiKey)
+  if (!ok) {
+    return NextResponse.json({ error: 'Credential validation failed' }, { status: 401 })
   }
 
   const expSeconds = Math.floor(Date.now() / 1000) + COOKIE_MAX_AGE
