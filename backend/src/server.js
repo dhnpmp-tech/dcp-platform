@@ -1396,6 +1396,27 @@ async function runPayoutReconcile() {
 setInterval(runPayoutReconcile, PAYOUT_RECONCILE_INTERVAL_MS);
 console.log(`[payout] reconciliation sweep started (every ${PAYOUT_RECONCILE_INTERVAL_MS / 60000}m)`);
 
+// Top-up reconciliation sweep — catches dropped/failed payment_paid webhooks by
+// asking Moyasar whether each pending hosted top-up's invoice was paid, then
+// crediting idempotently. Backstop for the webhook-attribution class of bug
+// that silently lost 4 customers' payments (2026-07-29). Every 10 min.
+const TOPUP_RECONCILE_INTERVAL_MS = 10 * 60 * 1000;
+async function runTopupReconcile() {
+  try {
+    if (typeof paymentsRouter.reconcilePendingTopups !== 'function') return;
+    const r = await paymentsRouter.reconcilePendingTopups({ maxAgeDays: 14, limit: 50 });
+    if (r.credited > 0 || r.errors > 0) {
+      console.log(`[topup.reconcile] swept=${r.swept} credited=${r.credited} failed=${r.failed} errors=${r.errors}`);
+    }
+    recordCronTick('topup_reconcile', { outcome: 'ok', intervalMs: TOPUP_RECONCILE_INTERVAL_MS, summary: r });
+  } catch (err) {
+    console.error('[topup.reconcile] error:', err?.message || err);
+    try { recordCronTick('topup_reconcile', { outcome: 'error', intervalMs: TOPUP_RECONCILE_INTERVAL_MS, error: err?.message || String(err) }); } catch (_) {}
+  }
+}
+setInterval(runTopupReconcile, TOPUP_RECONCILE_INTERVAL_MS);
+console.log(`[topup] reconciliation sweep started (every ${TOPUP_RECONCILE_INTERVAL_MS / 60000}m)`);
+
 // Audit C3 — backend-side endpoint reachability probe (30s loop).
 // Detects providers whose daemon heartbeats but whose vllm_endpoint_url is
 // dead from this VPS (Cloudflare tunnel killed, WG mesh IP not routable, etc).
