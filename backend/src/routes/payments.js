@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const https = require('https');
 const router = express.Router();
 const db = require('../db');
-const { looksLikeProviderKey } = require('../middleware/auth');
+const { looksLikeProviderKey, requireAdminAuth } = require('../middleware/auth');
 const { withFinancialIdempotency } = require('../lib/financial-idempotency');
 const conversionFunnel = require('../services/conversionFunnelService');
 
@@ -225,6 +225,95 @@ function markPaymentRefundedOnce(paymentId, renterId, refundAmountHalala, nowIso
     return true;
   });
   return tx();
+}
+
+// ─── Top-up reconciliation sweep ───────────────────────────────────────────────
+// Safety net for dropped/failed payment_paid webhooks: for each pending hosted
+// top-up, ask Moyasar whether its INVOICE was paid, and credit idempotently via
+// markPaymentPaidOnce. This is why the 4-customer silent-loss incident (webhook
+// matched on payment id, not invoice id) could go unnoticed — there was no
+// reconciliation backstop. Mirrors runPayoutReconcile. Idle when nothing pends.
+// Pure decision for one pending top-up given what Moyasar reports. Extracted
+// so the credit/fail/skip logic is unit-testable without HTTP or a DB.
+function topupReconcileDecision(moyasarStatus, moyasarAmountHalala, dbAmountHalala) {
+  const status = String(moyasarStatus || '').toLowerCase();
+  if (status === 'paid') {
+    if (moyasarAmountHalala != null && moyasarAmountHalala !== dbAmountHalala) {
+      return { action: 'skip', reason: 'amount_mismatch' };
+    }
+    return { action: 'credit' };
+  }
+  if (['failed', 'void', 'canceled', 'expired'].includes(status)) {
+    return { action: 'fail' };
+  }
+  return { action: 'wait' };
+}
+
+async function reconcilePendingTopups({ maxAgeDays = 14, limit = 50 } = {}) {
+  const summary = { swept: 0, credited: 0, still_pending: 0, failed: 0, errors: 0 };
+  const cutoff = new Date(Date.now() - maxAgeDays * 86400 * 1000).toISOString();
+  const rows = db.all(
+    `SELECT payment_id, moyasar_id, renter_id, amount_halala
+       FROM payments
+      WHERE status IN ('pending', 'initiated')
+        AND source_type IN ('creditcard', 'applepay')
+        AND moyasar_id IS NOT NULL
+        AND created_at > ?
+      ORDER BY created_at DESC
+      LIMIT ?`,
+    cutoff, limit
+  );
+  for (const row of rows) {
+    summary.swept += 1;
+    try {
+      // moyasar_id may be an invoice id (hosted) or a payment id (rebound). Try
+      // invoice first; fall back to payment.
+      let paidStatus = null;
+      let invoiceAmount = null;
+      try {
+        const invoice = await moyasarRequest('GET', `/invoices/${encodeURIComponent(row.moyasar_id)}`);
+        paidStatus = String(invoice?.status || '').toLowerCase();
+        invoiceAmount = Number.parseInt(invoice?.amount, 10);
+      } catch (e) {
+        if (e.statusCode === 404) {
+          const payment = await moyasarRequest('GET', `/payments/${encodeURIComponent(row.moyasar_id)}`)
+            .catch((pe) => {
+              // Both invoice AND payment lookups failed — treat as still-pending
+              // this cycle (never credit blind), but leave a trace so a real
+              // Moyasar outage is visible instead of silently swallowed.
+              console.warn(`[topup.reconcile] ${row.payment_id}: invoice 404 and payment lookup failed (${pe?.message || pe}) — leaving pending`);
+              return null;
+            });
+          paidStatus = String(payment?.status || '').toLowerCase();
+          invoiceAmount = payment ? Number.parseInt(payment.amount, 10) : null;
+        } else { throw e; }
+      }
+      const decision = topupReconcileDecision(paidStatus, invoiceAmount, row.amount_halala);
+      if (decision.action === 'credit') {
+        const changed = markPaymentPaidOnce(
+          row.payment_id, row.renter_id, row.amount_halala,
+          new Date().toISOString(),
+          JSON.stringify({ source: 'topup_reconcile', moyasar_id: row.moyasar_id })
+        );
+        if (changed) {
+          summary.credited += 1;
+          console.log(`[topup.reconcile] credited ${row.amount_halala} halala to renter ${row.renter_id} (payment ${row.payment_id})`);
+        }
+      } else if (decision.action === 'skip') {
+        console.warn(`[topup.reconcile] ${row.payment_id}: ${decision.reason} (moyasar=${invoiceAmount} db=${row.amount_halala}) — skipping`);
+        summary.failed += 1;
+      } else if (decision.action === 'fail') {
+        runStatement("UPDATE payments SET status = 'failed' WHERE payment_id = ? AND status IN ('pending','initiated')", row.payment_id);
+        summary.failed += 1;
+      } else {
+        summary.still_pending += 1;
+      }
+    } catch (e) {
+      summary.errors += 1;
+      console.error(`[topup.reconcile] error on ${row.payment_id}:`, e?.message || e);
+    }
+  }
+  return summary;
 }
 
 // ─── Renter auth helper ────────────────────────────────────────────────────────
@@ -557,6 +646,11 @@ router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) =>
   }
 
   const paymentId = typeof event?.id === 'string' ? event.id.trim() : '';
+  // Hosted top-ups store the INVOICE id as moyasar_id, but payment_paid fires
+  // with the PAYMENT id. The event carries invoice_id — the deterministic link
+  // back to our stored record. (Moyasar does NOT copy invoice metadata onto the
+  // payment, so metadata.renter_id is empty; invoice_id is the reliable key.)
+  const invoiceId = typeof event?.invoice_id === 'string' ? event.invoice_id.trim() : '';
   const status = typeof event?.status === 'string' ? event.status.trim().toLowerCase() : ''; // 'paid' | 'failed' | 'refunded' | 'initiated'
   if (!paymentId) {
     return res.status(400).json({ error: 'Webhook payload missing payment id' });
@@ -569,12 +663,22 @@ router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) =>
   }
   const now = new Date().toISOString();
 
-  // Look up stored payment record
+  // Look up stored payment record. Match on the payment id (event.id), our
+  // internal payment_id, AND the invoice id (event.invoice_id) — the last is
+  // what hosted top-ups actually stored as moyasar_id.
   let payment = db.get(
     'SELECT * FROM payments WHERE moyasar_id = ? OR payment_id = ?',
     paymentId,
     paymentId
   );
+  if (!payment && invoiceId) {
+    payment = db.get('SELECT * FROM payments WHERE moyasar_id = ?', invoiceId);
+    if (payment) {
+      // Bind the real payment id so subsequent webhook retries are idempotent.
+      runStatement('UPDATE payments SET moyasar_id = ? WHERE payment_id = ?', paymentId, payment.payment_id);
+      console.log(`[payments/webhook] matched by invoice_id ${invoiceId} → payment ${payment.payment_id} (renter ${payment.renter_id})`);
+    }
+  }
 
   // Hosted-invoice top-ups: we stored the INVOICE id as moyasar_id, but Moyasar
   // fires payment_paid with the PAYMENT id — they never match. Moyasar copies
@@ -1159,5 +1263,23 @@ function getMoneyConfigReadiness() {
 }
 
 router.getMoneyConfigReadiness = getMoneyConfigReadiness;
+
+// Admin-triggered manual reconciliation (also runs on a cron in server.js).
+// POST /api/payments/admin/reconcile-topups  { max_age_days?, limit? }
+router.post('/admin/reconcile-topups', requireAdminAuth, async (req, res) => {
+  try {
+    const maxAgeDays = toFiniteInt(req.body?.max_age_days, { min: 1, max: 90 }) || 14;
+    const limit = toFiniteInt(req.body?.limit, { min: 1, max: 200 }) || 50;
+    const summary = await reconcilePendingTopups({ maxAgeDays, limit });
+    res.json({ success: true, ...summary });
+  } catch (error) {
+    console.error('[payments/reconcile-topups] error:', error?.message || error);
+    res.status(500).json({ error: 'Reconciliation failed' });
+  }
+});
+
+// Exposed for the server-side cron sweep + tests.
+router.reconcilePendingTopups = reconcilePendingTopups;
+router.topupReconcileDecision = topupReconcileDecision;
 
 module.exports = router;
