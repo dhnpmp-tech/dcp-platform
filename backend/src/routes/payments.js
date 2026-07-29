@@ -152,6 +152,36 @@ function moyasarRequest(method, path, body) {
 
 // ─── Webhook HMAC verification ─────────────────────────────────────────────────
 
+// Recover the exact raw bytes Moyasar signed. Despite express.raw(), upstream
+// middleware can hand the handler a NON-Buffer body:
+//   - {type:'Buffer', data:[...]}    (Buffer.toJSON round-trip)
+//   - {"0":123,"1":34,...}           (a Buffer spread into an indexed object)
+//   - a string
+// The old code did Buffer.from(JSON.stringify(body)) for any object, which
+// re-serialized the indexed form into different bytes → the HMAC NEVER matched
+// and no webhook was ever verified (only the reconcile sweep credited). Rebuild
+// the true bytes so the signature check works.
+function coerceRawBody(rawBody) {
+  if (Buffer.isBuffer(rawBody)) return rawBody;
+  if (typeof rawBody === 'string') return Buffer.from(rawBody);
+  if (rawBody && typeof rawBody === 'object') {
+    if (rawBody.type === 'Buffer' && Array.isArray(rawBody.data)) {
+      return Buffer.from(rawBody.data);
+    }
+    const keys = Object.keys(rawBody);
+    if (keys.length > 0 && keys.every((k) => /^\d+$/.test(k))) {
+      const bytes = keys
+        .sort((a, b) => Number(a) - Number(b))
+        .map((k) => rawBody[k]);
+      if (bytes.every((n) => Number.isInteger(n) && n >= 0 && n <= 255)) {
+        return Buffer.from(bytes);
+      }
+    }
+    return Buffer.from(JSON.stringify(rawBody));
+  }
+  return null;
+}
+
 function verifyMoyasarWebhook(rawBody, signatureHeader, webhookSecret) {
   if (!webhookSecret || !signatureHeader) return false;
   const signature = String(signatureHeader).trim().toLowerCase();
@@ -604,10 +634,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), (req, res) =>
   let rawBody = req.body; // Buffer (express.raw)
   const signature = req.headers['x-moyasar-signature'];
 
-  if (!Buffer.isBuffer(rawBody)) {
-    if (typeof rawBody === 'string') rawBody = Buffer.from(rawBody);
-    else if (rawBody && typeof rawBody === 'object') rawBody = Buffer.from(JSON.stringify(rawBody));
-  }
+  rawBody = coerceRawBody(rawBody);
   if (!Buffer.isBuffer(rawBody)) {
     return res.status(400).json({ error: 'Invalid JSON body' });
   }
@@ -1181,10 +1208,7 @@ router.post('/payout-webhook', express.raw({ type: 'application/json' }), async 
   let rawBody = req.body;
   const signature = req.headers['x-moyasar-signature'];
 
-  if (!Buffer.isBuffer(rawBody)) {
-    if (typeof rawBody === 'string') rawBody = Buffer.from(rawBody);
-    else if (rawBody && typeof rawBody === 'object') rawBody = Buffer.from(JSON.stringify(rawBody));
-  }
+  rawBody = coerceRawBody(rawBody);
   if (!Buffer.isBuffer(rawBody)) {
     return res.status(400).json({ error: 'Invalid JSON body' });
   }
