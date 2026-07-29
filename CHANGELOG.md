@@ -235,6 +235,32 @@ migrate transactional email based on stale SES free-tier assumptions.
 - **Verification:** `node tests/zatca-readiness-audit-static.test.js`;
   `git diff --check`.
 
+### Pending - `feat(daemon): execute pull-on-demand model tasks - PR #962`
+**PR:** [#962](https://github.com/dhnpmp-tech/dcp-platform/pull/962) (`agent/codex/task_48fda7f9a60b-pull-on-demand-daemon`).
+
+**What:** Completes the daemon side of the existing pull-on-demand model task
+channel so backend-created `pull_model` tasks are no longer stranded after a
+heartbeat.
+
+- **Daemon task runner:** `dcp_daemon.py` now starts backend-issued
+  `pending_tasks` from successful heartbeat responses, supports `pull_model`
+  tasks through `ollama pull`, and avoids duplicate local execution for the
+  same task id.
+- **Heartbeat reporting:** The daemon queues `task_updates` for in-progress,
+  completed, and failed pull tasks, sends them on heartbeat, and only removes
+  them locally after a successful 200 response so transient network failures do
+  not lose completion state.
+- **Safety rails:** Pulls run in background threads so heartbeats continue,
+  respect the existing `DCP_OLLAMA_PULL_TIMEOUT_SEC`, preflight disk capacity
+  against migration 008's size * 1.5 rule, verify the pulled model before
+  reporting completion, and refresh cached-model detection after success.
+- **Regression guard:** Added installer tests for queued-update acknowledgement,
+  successful pull reporting, insufficient-disk failure, duplicate-task
+  suppression, and unsupported task handling.
+- **Safety:** Daemon/control-plane orchestration only; no pricing, billing,
+  payment, settlement, provider payout, API-key, renter balance, routing
+  policy, or catalog claim changed.
+
 ### Pending - `docs(orchestration): clarify mission PR-link order - PR #957`
 
 **PR:** [#957](https://github.com/dhnpmp-tech/dcp-platform/pull/957) (`agent/codex/task_a74b6c71d-mission-doc-cleanup`).
