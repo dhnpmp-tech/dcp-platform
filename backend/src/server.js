@@ -1411,7 +1411,12 @@ async function runTopupReconcile() {
     recordCronTick('topup_reconcile', { outcome: 'ok', intervalMs: TOPUP_RECONCILE_INTERVAL_MS, summary: r });
   } catch (err) {
     console.error('[topup.reconcile] error:', err?.message || err);
-    try { recordCronTick('topup_reconcile', { outcome: 'error', intervalMs: TOPUP_RECONCILE_INTERVAL_MS, error: err?.message || String(err) }); } catch (_) {}
+    try {
+      recordCronTick('topup_reconcile', { outcome: 'error', intervalMs: TOPUP_RECONCILE_INTERVAL_MS, error: err?.message || String(err) });
+    } catch (tickErr) {
+      // Telemetry write is best-effort; never let it mask the original error.
+      console.error('[topup.reconcile] recordCronTick failed:', tickErr?.message || tickErr);
+    }
   }
 }
 setInterval(runTopupReconcile, TOPUP_RECONCILE_INTERVAL_MS);

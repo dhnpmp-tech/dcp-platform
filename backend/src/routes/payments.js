@@ -276,7 +276,14 @@ async function reconcilePendingTopups({ maxAgeDays = 14, limit = 50 } = {}) {
         invoiceAmount = Number.parseInt(invoice?.amount, 10);
       } catch (e) {
         if (e.statusCode === 404) {
-          const payment = await moyasarRequest('GET', `/payments/${encodeURIComponent(row.moyasar_id)}`).catch(() => null);
+          const payment = await moyasarRequest('GET', `/payments/${encodeURIComponent(row.moyasar_id)}`)
+            .catch((pe) => {
+              // Both invoice AND payment lookups failed — treat as still-pending
+              // this cycle (never credit blind), but leave a trace so a real
+              // Moyasar outage is visible instead of silently swallowed.
+              console.warn(`[topup.reconcile] ${row.payment_id}: invoice 404 and payment lookup failed (${pe?.message || pe}) — leaving pending`);
+              return null;
+            });
           paidStatus = String(payment?.status || '').toLowerCase();
           invoiceAmount = payment ? Number.parseInt(payment.amount, 10) : null;
         } else { throw e; }
