@@ -219,6 +219,8 @@ export default function RenterWalletPage() {
   const [payments, setPayments] = useState<RenterPayment[]>([])
   const [autoTopup, setAutoTopup] = useState<AutoTopupSettings | null>(null)
   const [topupResult, setTopupResult] = useState<TopupResult | null>(null)
+  // Set when Moyasar redirects back after a manual top-up (?topup=return).
+  const [topupReturn, setTopupReturn] = useState<'paid' | 'failed' | 'pending' | null>(null)
   const [paymentsReady, setPaymentsReady] = useState(false)
   const [autoEnabled, setAutoEnabled] = useState(false)
   const [autoThresholdSar, setAutoThresholdSar] = useState(0)
@@ -273,6 +275,17 @@ export default function RenterWalletPage() {
     }
   }, [])
 
+  // Manual top-up return: Moyasar appends ?status=paid|failed to our callback.
+  // Crediting is confirmed by webhook/reconciliation (may take a moment), so we
+  // acknowledge receipt rather than assert the balance is already updated.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (!params.has('topup')) return
+    const status = (params.get('status') || '').toLowerCase()
+    setTopupReturn(status === 'paid' ? 'paid' : status === 'failed' ? 'failed' : 'pending')
+  }, [])
+
   const displayName = renter?.organization || renter?.name || renter?.email || 'DCP renter'
   const displayEmail = renter?.email || 'API key not loaded'
   const displaySub = renter?.organization && renter?.name ? `${renter.name} · renter account` : 'Renter account'
@@ -321,7 +334,9 @@ export default function RenterWalletPage() {
         body: JSON.stringify({
           amount_halala: Math.round(topupAmount * HALALA_PER_SAR),
           payment_method: selectedMethod.code,
-          callback_url: `${window.location.origin}/payment/auto-topup-callback`,
+          // Manual top-ups return to the wallet (NOT the auto-top-up 3DS page,
+          // which requires an attempt_id and shows "Invalid link" here).
+          callback_url: `${window.location.origin}/renter/wallet?topup=return`,
         }),
       })
       const data = (await res.json()) as TopupResult & { error?: string; message?: string }
@@ -378,6 +393,18 @@ export default function RenterWalletPage() {
           <Bi en="credit." ar="رصيدك." />
         </em>
       </h1>
+      {topupReturn && topupReturn !== 'failed' && (
+        <div role="status" style={{ margin: '14px 0', padding: '12px 16px', border: '1px solid var(--teal)', borderRadius: 8, background: 'color-mix(in oklab, var(--teal) 10%, transparent)' }}>
+          <strong><Bi en="Payment received." ar="تم استلام الدفعة." /></strong>{' '}
+          <Bi en="Your balance updates within a few minutes once the payment clears. No need to pay again." ar="سيتم تحديث رصيدك خلال دقائق بعد اكتمال الدفع. لا حاجة للدفع مرة أخرى." />
+        </div>
+      )}
+      {topupReturn === 'failed' && (
+        <div role="alert" style={{ margin: '14px 0', padding: '12px 16px', border: '1px solid var(--orange)', borderRadius: 8, background: 'color-mix(in oklab, var(--orange) 10%, transparent)' }}>
+          <strong><Bi en="Payment not completed." ar="لم يكتمل الدفع." /></strong>{' '}
+          <Bi en="Your card was not charged. You can try the top-up again below." ar="لم يتم خصم أي مبلغ من بطاقتك. يمكنك إعادة المحاولة أدناه." />
+        </div>
+      )}
       <div className="rt-h1-sub">
         <span>
           <Bi en="Prepaid DCP credit · halala-precise accounting" ar="رصيد DCP مسبق الدفع · محاسبة دقيقة بالهللة" />
