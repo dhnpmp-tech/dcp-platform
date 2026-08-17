@@ -16,6 +16,7 @@ const { reconcileRenterByEmailFromSupabase } = require('../services/renter-ident
 const { findActiveAccountByEmail, buildConflictResponse } = require('../services/cross-role-uniqueness');
 const { sendOtp: sendOtpAtRegister } = require('../services/auth-otp');
 const { isPublicWebhookUrl } = require('../lib/webhook-security');
+const { isDisposableEmail } = require('../lib/disposable-email');
 const { toRfc3339 } = require('../lib/iso-datetime');
 const { validateWebhookUrl, validateWebhookUrlValue } = require('../middleware/validateWebhookUrl');
 const { validateBody } = require('../middleware/validate');
@@ -419,6 +420,15 @@ router.post('/register', registerLimiter, validateBody(renterRegisterSchema), as
       return res.status(400).json({ error: 'Missing required fields: name, email' });
     }
 
+    // Anti-abuse: reject disposable/temp-mail signups (the fuel for the
+    // free-credit crypto-mining abuse). See lib/disposable-email.js.
+    if (isDisposableEmail(cleanEmail)) {
+      return res.status(400).json({
+        error: 'disposable_email',
+        message: 'Please sign up with a permanent email address.',
+      });
+    }
+
     // Dual-role allowed: the historical hard block (see migration 006) was
     // softened on 2026-05-09 because real users (Tareq, Fadi) hit it during
     // onboarding. The same email can now hold both a provider and a renter
@@ -555,6 +565,9 @@ const AGENT_TRIAL_HALALA = 2000;
 router.post('/agent-register', agentRegisterLimiter, validateBody(renterAgentRegisterSchema), async (req, res) => {
   try {
     const cleanEmail = req.body.email ? normalizeEmail(req.body.email) : null;
+    if (cleanEmail && isDisposableEmail(cleanEmail)) {
+      return res.status(400).json({ error: 'disposable_email', message: 'Please use a permanent email address.' });
+    }
     const cleanLabel = normalizeString(req.body.label, { maxLen: 120 });
     const cleanOrg = normalizeString(req.body.organization, { maxLen: 160 });
     const cleanUseCase = normalizeString(req.body.use_case, { maxLen: 120 });

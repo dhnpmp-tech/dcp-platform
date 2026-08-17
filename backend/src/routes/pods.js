@@ -731,6 +731,26 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
   subjectId: (req) => req.renter && req.renter.id,
 }), (req, res) => {
   try {
+    // Anti-abuse (2026-08-17): launching a GPU pod requires a VERIFIED payment
+    // — at least one paid top-up OR a saved card. Free signup credit is for API
+    // inference only, not interactive GPU. This closes the crypto-mining vector
+    // (a throwaway disposable-email account took the 100 SAR credit and mined on
+    // a pod for ~9h). A per-renter allow flag (pods_payment_exempt) bypasses it.
+    if (!req.renter || !req.renter.pods_payment_exempt) {
+      const hasPaidTopup = db.get(
+        `SELECT 1 FROM payments WHERE renter_id = ? AND status = 'paid' LIMIT 1`,
+        req.renter.id
+      );
+      const hasSavedCard = !!(req.renter && req.renter.moyasar_card_last4);
+      if (!hasPaidTopup && !hasSavedCard) {
+        return res.status(402).json({
+          error: 'payment_required',
+          code: 'PAYMENT_REQUIRED_FOR_POD',
+          message: 'Add a payment method or make a top-up to launch GPU pods. Your free credit covers API inference.',
+        });
+      }
+    }
+
     // Concurrency quota: a renter may hold at most N live pods. A per-renter
     // override (renters.max_active_pods) takes precedence when set to a positive
     // integer; otherwise we fall back to the global/env default. req.renter is the
