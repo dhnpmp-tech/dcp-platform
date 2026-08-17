@@ -1569,6 +1569,10 @@ db.exec(`
   'ALTER TABLE renters ADD COLUMN auto_topup_consecutive_failures INTEGER DEFAULT 0',
   'ALTER TABLE renters ADD COLUMN auto_topup_paused_until TEXT',
   'ALTER TABLE renters ADD COLUMN auto_topup_last_attempt_at TEXT',
+  // Anti-mining-abuse (2026-08-17): GPU-pod launch requires a verified payment
+  // (paid top-up or saved card). This flag exempts trusted internal/test/agent
+  // accounts from that gate. Backfilled =1 for @dcp.sa / @agents.dcp.sa below.
+  'ALTER TABLE renters ADD COLUMN pods_payment_exempt INTEGER DEFAULT 0',
   // Agent self-serve onboarding (2026-06): provenance + audit columns so an
   // auto-minted renter (no email click) can be told apart from a human-verified
   // one and revoked/audited. All nullable/defaulted — backfilled NULL on
