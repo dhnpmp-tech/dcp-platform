@@ -499,9 +499,6 @@ export default function TrustCenterPage() {
               <span className="residency-badge ksa">
                 <span className="flag">🇸🇦</span> {locale === 'ar' ? 'داخل المملكة' : 'KSA-resident'}
               </span>
-              <span className="residency-badge ksa">
-                <span className="flag">🇸🇦</span> ZATCA
-              </span>
             </div>
           </div>
         </section>

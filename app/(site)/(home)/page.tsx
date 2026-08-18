@@ -302,11 +302,6 @@ client = OpenAI(
               <span className="sub"><Bi en="In-Kingdom infrastructure" ar="بنية تحتية داخل المملكة" /></span>
             </div>
             <div className="item">
-              <span className="k">ZATCA</span>
-              <span className="v"><Bi en="VAT-registered" ar="مسجّل ضريبياً" /></span>
-              <span className="sub">311102233400003</span>
-            </div>
-            <div className="item">
               <span className="k">CR</span>
               <span className="v">7053667775</span>
               <span className="sub">DC Power Solutions Co.</span>
@@ -666,13 +661,14 @@ client = OpenAI(
               <li><Link href="/trust-center"><Bi en="Trust center" ar="مركز الثقة" /></Link></li>
               <li><Link href="/status"><Bi en="Live status" ar="الحالة الحية" /></Link></li>
               <li><Link href="/support"><Bi en="Talk to sales" ar="تواصل مع المبيعات" /></Link></li>
+              <li><Link href="/contact"><Bi en="Contact us" ar="اتصل بنا" /></Link></li>
             </ul>
           </div>
         </div>
 
         <div className="foot-bottom">
           <span>
-            § DC Power Solutions Company · CR 7053667775 · VAT 311102233400003{' '}
+            § DC Power Solutions Company · CR 7053667775{' '}
             <span className="egg-hint" dir="ltr">
               · psst — try typing <EggWord>“gpu”</EggWord>
             </span>
@@ -680,7 +676,6 @@ client = OpenAI(
           <div className="badges">
             <span className="residency-badge ksa" style={{ fontSize: 10, padding: '3px 8px' }}>PDPL</span>
             <span className="residency-badge ksa" style={{ fontSize: 10, padding: '3px 8px' }}>KSA-resident</span>
-            <span className="residency-badge ksa" style={{ fontSize: 10, padding: '3px 8px' }}>ZATCA</span>
           </div>
           <span>© 2026 · Riyadh · KSA</span>
         </div>

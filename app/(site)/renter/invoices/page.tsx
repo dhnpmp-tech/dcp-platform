@@ -343,7 +343,6 @@ export default function RenterInvoicesPage() {
               }}
             >
               CR 7053667775<br />
-              VAT 311102233400003<br />
               Riyadh, Saudi Arabia
             </div>
           </div>
