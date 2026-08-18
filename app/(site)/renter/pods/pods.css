@@ -3508,4 +3508,66 @@ select.gpu-sort:focus-visible { outline: 2px solid var(--rt-accent); outline-off
 .vol-opt-price { font-size:12px; color:var(--text-2,#7b7a92); }
 .vol-opt-full { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--accent-orange,#ee7a3c); }
 .vol-pool { display:block; margin-top:10px; font-size:12px; color:var(--text-2,#7b7a92); }
+
+/* ──────────────────────────────────────────────────────────────
+   Affordance clarity (2026-08)
+   Fix: .input/.select and .btn-sec were both a hairline-bordered
+   rectangle, so a text box and a choice button looked identical.
+   Now FIELDS read as recessed wells (darker fill + inset shadow)
+   and BUTTONS read as raised, filled controls (lighter + drop
+   shadow + top highlight). Scoped to pod containers only.
+   ────────────────────────────────────────────────────────────── */
+
+/* Fields → recessed input wells */
+.gpu-search,
+.pod-field .input,
+.pod-field .select,
+.pod-field .textarea,
+.pod-image-row .input,
+.pod-token-row .input {
+  background: color-mix(in oklab, #000 24%, var(--bg-2));
+  border: 1px solid color-mix(in oklab, var(--ink) 8%, var(--hair));
+  border-radius: 7px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.gpu-search:focus-within,
+.pod-field .input:focus,
+.pod-field .select:focus,
+.pod-field .textarea:focus,
+.pod-image-row .input:focus,
+.pod-token-row .input:focus {
+  border-color: var(--rt-accent);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 0 3px var(--rt-accent-soft);
+}
+
+/* Selects: explicit dropdown caret so they never read as a text field */
+.pod-field .select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 34px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--mut) 50%),
+    linear-gradient(135deg, var(--mut) 50%, transparent 50%);
+  background-position: calc(100% - 18px) calc(50% - 2px), calc(100% - 13px) calc(50% - 2px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+/* Actions → raised, filled buttons (clearly clickable, not a field) */
+.pod-token-row .btn-sec,
+.pod-stage .btn-sec,
+.pod-image-row .btn-sec {
+  background: color-mix(in oklab, var(--ink) 13%, var(--paper));
+  color: var(--ink);
+  border: 1px solid color-mix(in oklab, var(--ink) 18%, var(--hair));
+  border-radius: 7px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.045);
+}
+.pod-token-row .btn-sec:hover,
+.pod-stage .btn-sec:hover,
+.pod-image-row .btn-sec:hover {
+  background: var(--rt-accent);
+  color: #0a0b1a;
+  border-color: var(--rt-accent);
+}
 .vol-msg { display:block; margin-top:12px; font-size:13px; color:var(--accent-teal,#2dd4b6); }
