@@ -17,10 +17,12 @@ export interface SessionMetadata {
 
 /** Sets the server-side httpOnly session cookie and updates localStorage user data. */
 export async function setSession(metadata: SessionMetadata): Promise<void> {
+  // Server validates this key before minting a signed session cookie.
+  const apiKey = getStoredApiKey(metadata.role)
   await fetch('/api/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ role: metadata.role }),
+    body: JSON.stringify({ role: metadata.role, apiKey }),
   })
   if (typeof window !== 'undefined') {
     localStorage.setItem('dc1_user_data', JSON.stringify(metadata))
