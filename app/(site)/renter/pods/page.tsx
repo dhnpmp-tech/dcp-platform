@@ -2744,7 +2744,19 @@ export default function RenterPodsPage() {
                           const ariaLabel = `${name}, ${g.vram_gb} GB VRAM, ${
                             unpriced ? (lang === 'ar' ? 'السعر عند الطلب' : 'price on request') : `${fmtSar(g.sar_per_hour as number)} SAR/hr`
                           }, ${availLabel}`
-                          const onSelect = () => selectable && selectGpuType(g.gpu_model)
+                          const onSelect = (e: React.MouseEvent<HTMLDivElement>) => {
+                            if (!selectable) return
+                            // Keep the clicked card in place. Selecting a GPU expands the
+                            // summary above the grid, which would otherwise shift the cards
+                            // down and make the viewport appear to jump to another card.
+                            const el = e.currentTarget
+                            const before = el.getBoundingClientRect().top
+                            selectGpuType(g.gpu_model)
+                            requestAnimationFrame(() => {
+                              const after = el.getBoundingClientRect().top
+                              if (Math.abs(after - before) > 1) window.scrollBy(0, after - before)
+                            })
+                          }
                           const onKey = (e: React.KeyboardEvent) => {
                             if (!selectable) return
                             if (e.key === 'Enter' || e.key === ' ') {
