@@ -272,6 +272,8 @@ interface LaunchState {
   // '' = auto-pick (backend chooses any available type).
   gpuType: string
   durationMinutes: number
+  // Multi-GPU SKU: number of GPUs this pod uses (1..4 → 24/48/72/96 GB on a 3090).
+  gpuCount: number
   notebookToken: string
   // Selected preset value, or CUSTOM_IMAGE_OPTION to use customImage instead.
   imageChoice: string
@@ -817,6 +819,7 @@ export default function RenterPodsPage() {
   const [launch, setLaunch] = useState<LaunchState>({
     gpuType: '',
     durationMinutes: DEFAULT_DURATION_MINUTES,
+    gpuCount: 1,
     notebookToken: generateNotebookToken(),
     imageChoice: DEFAULT_IMAGE,
     customImage: '',
@@ -1081,6 +1084,7 @@ export default function RenterPodsPage() {
           // in-stock provider internally; the renter never sees a provider id.
           gpu_type: launch.gpuType || undefined,
           duration_minutes: launch.durationMinutes,
+          gpu_count: launch.gpuCount,
           image,
           params: { NOTEBOOK_TOKEN: token },
         }),
@@ -1117,6 +1121,7 @@ export default function RenterPodsPage() {
       setLaunch({
         gpuType: launch.gpuType,
         durationMinutes: launch.durationMinutes,
+        gpuCount: launch.gpuCount,
         notebookToken: generateNotebookToken(),
         imageChoice: launch.imageChoice,
         customImage: launch.customImage,
@@ -1342,7 +1347,7 @@ export default function RenterPodsPage() {
     : selectedImageLabel
   const durationLabel = formatDuration(launch.durationMinutes)
   const selectedQuoteSar = selectedType?.sar_per_hour != null
-    ? selectedType.sar_per_hour * (launch.durationMinutes / 60)
+    ? selectedType.sar_per_hour * launch.gpuCount * (launch.durationMinutes / 60)
     : null
   const activeFilterCount =
     (gpuSearch.trim() ? 1 : 0) +
@@ -2899,6 +2904,38 @@ export default function RenterPodsPage() {
         </div>
 
         <div className="pod-form-grid">
+          {/* GPU count — multi-GPU SKU (1×/2×/3×/4× → more VRAM on one node) */}
+          <div className="pod-field">
+            <label className="pod-label">
+              <Bi en="GPUs" ar="عدد المعالجات" />
+            </label>
+            <div className="pod-gpu-count" role="radiogroup" aria-label={lang === 'ar' ? 'عدد المعالجات' : 'GPU count'}>
+              {[1, 2, 3, 4].map((n) => {
+                const vram = selectedType?.vram_gb ? selectedType.vram_gb * n : null
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    role="radio"
+                    aria-checked={launch.gpuCount === n}
+                    className={launch.gpuCount === n ? 'selected' : ''}
+                    onClick={() => setLaunch((l) => ({ ...l, gpuCount: n, ...keepFundingLaunchError(l.error, l.creditError) }))}
+                    disabled={!isLive}
+                  >
+                    <strong>{n}×</strong>
+                    {vram != null && <span>{vram} GB</span>}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="pod-help">
+              <Bi
+                en="Combine GPUs on one node for more VRAM — billed per GPU, so cost scales with the count. If a node hasn't enough free GPUs, pick fewer or another type."
+                ar="ادمج عدة معالجات على نفس الجهاز لمزيد من الذاكرة — تُحتسب لكل معالج، فتزيد التكلفة مع العدد. إن لم تتوفر معالجات كافية، اختر عددًا أقل."
+              />
+            </p>
+          </div>
+
           {/* Duration */}
           <div className="pod-field">
             <label htmlFor="pod-duration" className="pod-label">
