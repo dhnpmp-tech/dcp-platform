@@ -414,7 +414,7 @@ const GPU_TYPE_ALIASES = {
 // we either give them an H100 or tell them it's unavailable — never a silent
 // RTX 3090 substitution. Matching is a case-insensitive substring of gpu_model
 // using the alias-normalized needle, so "h100" matches "NVIDIA H100 80GB HBM3".
-function resolveGpuType(rawType) {
+function resolveGpuType(rawType, neededGpus = 1) {
   const requested = String(rawType || '').trim();
   if (!requested) {
     return { error: 'invalid_gpu_type', code: 'INVALID_GPU_TYPE', message: 'gpu_type must be a non-empty string' };
@@ -466,17 +466,45 @@ function resolveGpuType(rawType) {
   }
   // Prefer an in-stock, online match. stock_available === 0 OR status 'offline'
   // means out of stock right now.
-  const inStock = matches.find(
+  const inStockMatches = matches.filter(
     (r) => r.stock_available !== 0 && r.status === 'online'
   );
-  if (!inStock) {
+  if (inStockMatches.length === 0) {
     return {
       error: 'gpu_type_out_of_stock',
       code: 'GPU_TYPE_OUT_OF_STOCK',
       message: `The GPU type "${requested}" is not available right now. Try another type from list_gpus, or retry shortly.`,
     };
   }
-  return { provider: inStock };
+  // Free-GPU-aware selection (multi-GPU SKUs): pick a node that actually has
+  // enough free GPUs for the requested count. Native free = physical GPUs minus
+  // GPUs held by that node's live pods; burst rows are synthetic single-instance
+  // capacity (each launch is its own external pod) → treated as always able.
+  const usedByProvider = {};
+  for (const row of db.all(
+    `SELECT provider_id, SUM(COALESCE(gpu_count, 1)) AS used
+       FROM jobs
+      WHERE job_type = 'interactive_pod'
+        AND status IN ('queued','pending','assigned','provisioning','pulling','running')
+      GROUP BY provider_id`
+  )) usedByProvider[row.provider_id] = Number(row.used) || 0;
+  const freeGpus = (r) => {
+    if (Number(r.is_burst) === 1) return Number.MAX_SAFE_INTEGER;
+    const total = Math.max(1, Number(r.gpu_count) || 1);
+    return Math.max(0, total - (usedByProvider[r.id] || 0));
+  };
+  // Rank by most-free first (satisfies multi-GPU + spreads single-GPU load off
+  // busy nodes), then take the first that fits the requested GPU count.
+  const ranked = [...inStockMatches].sort((a, b) => freeGpus(b) - freeGpus(a));
+  const fit = ranked.find((r) => freeGpus(r) >= Math.max(1, neededGpus));
+  if (!fit) {
+    return {
+      error: 'gpu_type_out_of_stock',
+      code: 'INSUFFICIENT_GPU_CAPACITY',
+      message: `No "${requested}" node has ${neededGpus} free GPU(s) right now. Choose fewer GPUs or retry shortly.`,
+    };
+  }
+  return { provider: fit };
 }
 
 // Resolve the provider this pod must run on. Either the renter pins one
@@ -845,7 +873,7 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
       if (typeof body.gpu_type !== 'string') {
         return res.status(400).json({ error: 'gpu_type must be a string', code: 'INVALID_GPU_TYPE' });
       }
-      resolution = resolveGpuType(body.gpu_type);
+      resolution = resolveGpuType(body.gpu_type, requestedGpuCount);
       if (resolution.error) {
         const httpStatus = resolution.error === 'gpu_type_out_of_stock' ? 409 : 400;
         return res.status(httpStatus).json({
