@@ -797,6 +797,12 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
       max: MAX_DURATION_MINUTES,
     }) || DEFAULT_DURATION_MINUTES;
 
+    // Multi-GPU SKU: how many GPUs this pod should use (1× / 2× / 3× / 4× →
+    // 24 / 48 / 72 / 96 GB on a 3090 node). Bounded [1, 8]; the effective count is
+    // clamped to the chosen provider's free GPUs below (native nodes only — a
+    // burst/RunPod pod is always a single external instance).
+    const requestedGpuCount = toFiniteInt(body.gpu_count, { min: 1, max: 8 }) || 1;
+
     // Reject weak Jupyter tokens (same policy as jobs.js:1238). The token is
     // baked into a publicly-reachable access_url, so a guessable value is RCE.
     const notebookToken = params.NOTEBOOK_TOKEN;
@@ -862,9 +868,51 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
     }
     const provider = resolution.provider;
 
+    // ── Multi-GPU allocation: assign N specific free GPUs on this provider ──
+    // A native node hosts multiple renters' pods concurrently (one per GPU set),
+    // so we count the GPU indices already held by this provider's live pods and
+    // hand out the free ones. Burst (RunPod) pods are single external instances —
+    // they always use exactly 1 GPU and are not index-sliced here.
+    const launchIsBurst = Number(provider.is_burst) === 1;
+    const providerGpuTotal = Math.max(1, resolvePodGpuCount(provider));
+    let gpuCount = launchIsBurst ? 1 : Math.min(requestedGpuCount, providerGpuTotal);
+    let gpusDeviceValue = null; // Docker --gpus value baked into the signed task_spec
+    if (!launchIsBurst && providerGpuTotal > 1) {
+      const usedIndexRows = db.all(
+        `SELECT gpu_indices FROM jobs
+          WHERE provider_id = ? AND job_type = 'interactive_pod'
+            AND status IN ('queued','pending','assigned','provisioning','pulling','running')
+            AND gpu_indices IS NOT NULL AND gpu_indices != ''`,
+        provider.id
+      );
+      const usedIndices = new Set();
+      for (const r of usedIndexRows) {
+        String(r.gpu_indices).split(',').forEach((s) => {
+          const n = Number.parseInt(s, 10);
+          if (Number.isInteger(n)) usedIndices.add(n);
+        });
+      }
+      const freeIndices = [];
+      for (let i = 0; i < providerGpuTotal; i += 1) if (!usedIndices.has(i)) freeIndices.push(i);
+      if (freeIndices.length < gpuCount) {
+        return res.status(409).json({
+          error: `Not enough free GPUs on this node right now: ${freeIndices.length} free, ${gpuCount} requested. Try a smaller GPU count or another node.`,
+          code: 'INSUFFICIENT_FREE_GPUS',
+          free_gpus: freeIndices.length,
+          requested_gpus: gpuCount,
+          retry_after_seconds: 60,
+        });
+      }
+      const assignedIndices = freeIndices.slice(0, gpuCount);
+      gpusDeviceValue = `device=${assignedIndices.join(',')}`;
+    }
+
     // ── Quote + pre-debit (the prepaid contract job-result settles against) ──
     const ratePerGpuSecond = resolvePodRate(provider);
-    const quoteGpuCount = resolvePodGpuCount(provider);
+    // Price the ACTUAL per-pod GPU count (the SKU the renter chose), not the
+    // provider's total GPU count. (Previously this billed a whole multi-GPU node
+    // for every pod — the latent overbilling bug on nodes like the 4×3090.)
+    const quoteGpuCount = gpuCount;
     const quoteHalala = computePodQuoteHalala({
       durationSeconds: durationMinutes * 60,
       ratePerGpuSecond,
@@ -915,6 +963,11 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
     // Tell the daemon to inject SSH (the image is not the DCP-baked default).
     if (imageResult.bootstrap) taskSpecObj.bootstrap_ssh = true;
 
+    // Multi-GPU: pin this pod to its assigned GPU device set on the node (e.g.
+    // "device=0,1"). Part of the HMAC-signed spec, so a renter cannot widen their
+    // own allocation. Absent → the daemon defaults to "all" (single-GPU nodes).
+    if (gpusDeviceValue) taskSpecObj.gpus = gpusDeviceValue;
+
     // Tier 1 (free, ALWAYS): pin a stable per-renter named volume so /workspace
     // persists on the provider and reattaches to the renter's next pod there at
     // zero marginal cost (the daemon reuses the named volume and never deletes it
@@ -927,7 +980,6 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
     // workspace_volume name is meaningless for it. Its only durable option is the
     // paid portable tier (snapshot/restore over the burst tunnel). Default a
     // burst pod to 'ephemeral' and only upgrade it to 'portable' below.
-    const launchIsBurst = Number(provider.is_burst) === 1;
     let workspaceTier = launchIsBurst ? 'ephemeral' : 'provider';
     try {
       const { activeVolumeForRenter } = require('./volumes');
@@ -999,20 +1051,20 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
           `INSERT INTO jobs
              (job_id, provider_id, renter_id, job_type, status,
               task_spec, task_spec_hmac, duration_minutes, max_duration_seconds,
-              cost_halala, submitted_at, created_at, timeout_at, pod_jpub, pod_spub)
-           VALUES (?, ?, ?, 'interactive_pod', 'pulling', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+              cost_halala, submitted_at, created_at, timeout_at, pod_jpub, pod_spub, gpu_count)
+           VALUES (?, ?, ?, 'interactive_pod', 'pulling', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).run(
           job_id, provider.id, req.renter.id, taskSpecStr, taskSpecHmac,
           durationMinutes, maxDurationSeconds, quoteHalala, now, now,
-          timeoutAt, burstPorts.jpub, burstPorts.spub
+          timeoutAt, burstPorts.jpub, burstPorts.spub, gpuCount
         );
       } else {
         db.prepare(
           `INSERT INTO jobs
              (job_id, provider_id, renter_id, job_type, status,
               task_spec, task_spec_hmac, duration_minutes, max_duration_seconds,
-              cost_halala, submitted_at, created_at)
-           VALUES (?, ?, ?, 'interactive_pod', 'queued', ?, ?, ?, ?, ?, ?, ?)`
+              cost_halala, submitted_at, created_at, gpu_count, gpu_indices)
+           VALUES (?, ?, ?, 'interactive_pod', 'queued', ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).run(
           job_id,
           provider.id,
@@ -1023,7 +1075,9 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
           maxDurationSeconds,
           quoteHalala,
           now,
-          now
+          now,
+          gpuCount,
+          gpusDeviceValue ? gpusDeviceValue.replace('device=', '') : null
         );
       }
       insertedOk = true;
@@ -1177,7 +1231,9 @@ function stopPodCore(job, { actorLabel = 'renter' } = {}) {
         startedAtMs,
         nowMs,
         ratePerGpuSecond: resolvePodRate(provider),
-        gpuCount: resolvePodGpuCount(provider),
+        // Settle on the pod's ACTUAL GPU count (the SKU it launched with), not the
+        // provider's total — otherwise early-stop refunds are wrong on multi-GPU nodes.
+        gpuCount: Number(job.gpu_count) || resolvePodGpuCount(provider),
       });
 
       db.prepare(
@@ -1351,10 +1407,11 @@ function extendPodCore(job, addMinutes, { actorLabel = 'renter' } = {}) {
     };
   }
 
-  // Incremental quote at the provider's current rate (same as launch).
+  // Incremental quote at the provider's current rate (same as launch) — priced on
+  // the pod's ACTUAL GPU count (the SKU it launched with), not the provider total.
   const provider = db.get(`SELECT cost_per_gpu_second_halala, gpu_count FROM providers WHERE id = ?`, job.provider_id);
   const ratePerGpuSecond = resolvePodRate(provider);
-  const gpuCount = resolvePodGpuCount(provider);
+  const gpuCount = Number(job.gpu_count) || resolvePodGpuCount(provider);
   const addQuoteHalala = computePodQuoteHalala({ durationSeconds: addSeconds, ratePerGpuSecond, gpuCount });
 
   // Atomic debit — refuse if the pod's renter balance can't cover the extension.

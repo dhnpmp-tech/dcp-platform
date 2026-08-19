@@ -1297,6 +1297,9 @@ const migrations = [
   'ALTER TABLE jobs ADD COLUMN ssh_command TEXT',
   'ALTER TABLE jobs ADD COLUMN pod_jpub INTEGER',
   'ALTER TABLE jobs ADD COLUMN pod_spub INTEGER',
+  // Multi-GPU pod SKUs: which GPU indices on the node this pod holds (e.g. "0,1"),
+  // so concurrent pods on a multi-GPU node get non-overlapping device sets.
+  'ALTER TABLE jobs ADD COLUMN gpu_indices TEXT',
   // Migration 021 renter columns are applied AFTER CREATE TABLE renters
   // (see the second migration sweep below) because the table is created
   // later in this file.

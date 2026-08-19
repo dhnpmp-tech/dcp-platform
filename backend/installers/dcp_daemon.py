@@ -7886,6 +7886,12 @@ def run_interactive_pod(task_spec, job_id=None):
     if not isinstance(task_spec, dict):
         return {"success": False, "error": "Invalid task_spec for interactive_pod — expected JSON"}
 
+    # Multi-GPU: the backend assigns the specific GPU device(s) for this pod as a
+    # Docker --gpus value (e.g. "device=0,1" for a 2-GPU / 48 GB SKU). Defaults to
+    # "all" for single-GPU nodes and legacy launches. It is part of the
+    # HMAC-signed task_spec, so a renter cannot widen their own allocation.
+    pod_gpus = str(task_spec.get("gpus", "all")).strip() or "all"
+
     image = task_spec.get("image", "dcp-compute:pytorch")
     # Renter-chosen images (anything but the DCP-baked default) get a generic SSH
     # bootstrap injected so the renter can always get in regardless of the image.
@@ -7970,7 +7976,7 @@ def run_interactive_pod(task_spec, job_id=None):
     # Only soft limits are applied; full kernel isolation (gVisor/Kata) is the GA gate.
     docker_cmd = [
         "docker", "run", "-d",
-        "--gpus", "all",
+        "--gpus", pod_gpus,
         "--name", container_name,
         "-p", f"{jport}:8888",
         "-p", f"{sport}:22",
