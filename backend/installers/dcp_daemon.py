@@ -156,7 +156,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.9.0"  # multi-GPU pods: honor task_spec.gpus for docker --gpus
+DAEMON_VERSION = "4.9.1"  # quote multi-GPU --gpus device list (Count+DeviceIDs fix)
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -7890,7 +7890,12 @@ def run_interactive_pod(task_spec, job_id=None):
     # Docker --gpus value (e.g. "device=0,1" for a 2-GPU / 48 GB SKU). Defaults to
     # "all" for single-GPU nodes and legacy launches. It is part of the
     # HMAC-signed task_spec, so a renter cannot widen their own allocation.
-    pod_gpus = str(task_spec.get("gpus", "all")).strip() or "all"
+    _raw_gpus = str(task_spec.get("gpus", "all")).strip() or "all"
+    # Docker comma-splits an UNQUOTED "device=0,1,2,3": the bare indices become a
+    # Count and collide with the DeviceIDs → "cannot set both Count and DeviceIDs".
+    # Quote the device list so Docker parses it as a single field. (Verified on a
+    # 4-GPU host: unquoted fails, quoted works.)
+    pod_gpus = f'"{_raw_gpus}"' if _raw_gpus.startswith("device=") else _raw_gpus
 
     image = task_spec.get("image", "dcp-compute:pytorch")
     # Renter-chosen images (anything but the DCP-baked default) get a generic SSH
