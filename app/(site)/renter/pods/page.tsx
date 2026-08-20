@@ -100,20 +100,27 @@ const IMAGE_PRESETS: ImagePreset[] = [
 // default is OPEN and gated ones are labelled (Tito's Node-3 QA). vLLM TP must be
 // a power of two, so serve GPU counts are restricted to 1 / 2 / 4.
 const SERVE_MODELS: { value: string; label: string; minGpus: 1 | 2 | 4; gated?: boolean }[] = [
-  // 1× — single-GPU starters
-  { value: 'TinyLlama/TinyLlama-1.1B-Chat-v1.0', label: 'TinyLlama 1.1B · fast/tiny', minGpus: 1 },
-  { value: 'microsoft/Phi-3-mini-4k-instruct', label: 'Phi-3 mini 4k · open', minGpus: 1 },
-  { value: 'deepseek-ai/DeepSeek-R1-Distill-Llama-8B', label: 'DeepSeek-R1 Distill 8B · open', minGpus: 1 },
+  // 1× — single-GPU. Qwen3-8B is the modern open default; Phi-3/TinyLlama are the
+  // fastest cold-start smoke options.
+  { value: 'Qwen/Qwen3-8B', label: 'Qwen3 8B · open · latest', minGpus: 1 },
+  { value: 'microsoft/Phi-3-mini-4k-instruct', label: 'Phi-3 mini 4k · open · fast', minGpus: 1 },
+  { value: 'TinyLlama/TinyLlama-1.1B-Chat-v1.0', label: 'TinyLlama 1.1B · smoke/tiny', minGpus: 1 },
+  { value: 'deepseek-ai/DeepSeek-R1-Distill-Llama-8B', label: 'DeepSeek-R1 Distill 8B · reasoning', minGpus: 1 },
   { value: 'google/gemma-2b-it', label: 'Gemma 2B Instruct', minGpus: 1, gated: true },
   { value: 'mistralai/Mistral-7B-Instruct-v0.2', label: 'Mistral 7B Instruct', minGpus: 1, gated: true },
   { value: 'meta-llama/Meta-Llama-3-8B-Instruct', label: 'Llama 3 8B Instruct', minGpus: 1, gated: true },
-  // 2× / 4× — the multi-GPU "bigger model" tier
-  { value: 'Qwen/Qwen2.5-72B-Instruct-AWQ', label: 'Qwen2.5 72B · 4-bit · frontier', minGpus: 2 },
-  { value: 'Qwen/Qwen2.5-32B-Instruct', label: 'Qwen2.5 32B · full precision', minGpus: 4 },
+  // 2× — needs tensor-parallel
+  { value: 'Qwen/Qwen3-14B', label: 'Qwen3 14B · open · latest', minGpus: 2 },
+  { value: 'Qwen/Qwen2.5-72B-Instruct-AWQ', label: 'Qwen2.5 72B · 4-bit · max params', minGpus: 2 },
+  // 4× — the top of what a 4×3090 node holds (235B / 2.4T MoE & FP8 don't fit Ampere)
+  { value: 'Qwen/Qwen3.8-27B', label: 'Qwen3.8 27B · open · newest', minGpus: 4 },
+  { value: 'Qwen/Qwen3-32B', label: 'Qwen3 32B · open · flagship', minGpus: 4 },
+  { value: 'Qwen/Qwen3-30B-A3B', label: 'Qwen3 30B-A3B · MoE · fast', minGpus: 4 },
   { value: 'mistralai/Mixtral-8x7B-Instruct-v0.1', label: 'Mixtral 8x7B', minGpus: 4, gated: true },
 ]
-// Phi-3 mini: open (MIT), fits 1×3090, quick cold-start — the safest first success.
-const DEFAULT_SERVE_MODEL = 'microsoft/Phi-3-mini-4k-instruct'
+// Qwen3-8B: open (Apache-2.0), fits 1×3090, current-gen quality — the recommended
+// first launch; the shared weight cache makes every launch after the first warm.
+const DEFAULT_SERVE_MODEL = 'Qwen/Qwen3-8B'
 const CUSTOM_IMAGE_OPTION = 'custom'
 const DEFAULT_IMAGE = 'pytorch'
 

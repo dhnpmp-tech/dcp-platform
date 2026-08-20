@@ -156,7 +156,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.9.4"  # vllm_serve: persistent shared HF weight cache (dcp-hf-cache volume)
+DAEMON_VERSION = "4.9.5"  # vllm_serve: Qwen3 / Qwen3.8-27B catalog (open multi-GPU models)
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -7527,18 +7527,23 @@ def run_vllm_serve_job(task_spec, job_id=None):
 
     # Allowed models (mirrors backend whitelist)
     ALLOWED_VLLM_MODELS = {
-        # 1× starters
-        "mistralai/Mistral-7B-Instruct-v0.2",
-        "meta-llama/Meta-Llama-3-8B-Instruct",
+        # 1× — open + gated starters
+        "Qwen/Qwen3-8B",                   # open, current-gen default
         "microsoft/Phi-3-mini-4k-instruct",
-        "google/gemma-2b-it",
         "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
         "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-        # Multi-GPU, OPEN (Apache-2.0, no HF token needed) — the "bigger model"
-        # tier that actually needs tensor-parallelism on 3090s.
+        "mistralai/Mistral-7B-Instruct-v0.2",     # gated
+        "meta-llama/Meta-Llama-3-8B-Instruct",    # gated
+        "google/gemma-2b-it",                     # gated
+        # 2× — OPEN (Apache-2.0, no HF token), needs tensor-parallelism on 3090s
+        "Qwen/Qwen3-14B",                  # ~28 GB FP16 → 2× 3090 (TP=2)
         "Qwen/Qwen2.5-72B-Instruct-AWQ",   # ~40 GB INT4 → 2× 3090 (TP=2)
-        "Qwen/Qwen2.5-32B-Instruct",       # ~64 GB FP16 → 4× 3090 (TP=4)
-        # Multi-GPU, GATED (need HF token on provider) — kept for when a token is set.
+        # 4× — OPEN. Qwen3.8-27B is NEWEST (2026-08-14, Qwen3_5 VL arch — smoke-test
+        # vLLM support); Qwen3-32B is the proven text fallback.
+        "Qwen/Qwen3.8-27B",                # ~54 GB FP16 → 4× 3090 (TP=4)
+        "Qwen/Qwen3-32B",                  # ~64 GB FP16 → 4× 3090 (TP=4)
+        "Qwen/Qwen3-30B-A3B",              # MoE, 3B active → 4× 3090 (TP=4), fast
+        # GATED (needs HF token on provider) — kept for when a token is set.
         "mistralai/Mixtral-8x7B-Instruct-v0.1",  # ~94 GB FP16 → 4× 3090 (TP=4)
     }
     if model not in ALLOWED_VLLM_MODELS:
