@@ -156,7 +156,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.9.1"  # quote multi-GPU --gpus device list (Count+DeviceIDs fix)
+DAEMON_VERSION = "4.9.2"  # --shm-size=16g on pods (unblocks multi-GPU vLLM/NCCL)
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -7982,6 +7982,10 @@ def run_interactive_pod(task_spec, job_id=None):
     docker_cmd = [
         "docker", "run", "-d",
         "--gpus", pod_gpus,
+        # Larger /dev/shm: Docker's 64 MiB default blocks multi-GPU work INSIDE the
+        # pod — vLLM tensor-parallel / NCCL need ≥160 MiB, and PyTorch DataLoader
+        # workers use shm too. Per-container (not --ipc=host) to keep pods isolated.
+        "--shm-size", "16g",
         "--name", container_name,
         "-p", f"{jport}:8888",
         "-p", f"{sport}:22",
