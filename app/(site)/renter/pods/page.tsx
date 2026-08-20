@@ -94,15 +94,19 @@ const IMAGE_PRESETS: ImagePreset[] = [
 // Serve-mode models — mirrors the backend + daemon whitelist (run_vllm_serve_job).
 // Ordered small → large so the default is a safe single-GPU pick; multi-GPU pods
 // serve the bigger ones tensor-parallel (TP = GPU count).
-const SERVE_MODELS: { value: string; label: string }[] = [
+// `gated` = needs Hugging Face license acceptance / token to download. One-click
+// serve can fail ugly on a provider without an HF token, so the default is an
+// OPEN model and gated ones are labelled (Tito's Node-3 QA flag).
+const SERVE_MODELS: { value: string; label: string; gated?: boolean }[] = [
   { value: 'TinyLlama/TinyLlama-1.1B-Chat-v1.0', label: 'TinyLlama 1.1B · fast/tiny' },
-  { value: 'google/gemma-2b-it', label: 'Gemma 2B Instruct' },
-  { value: 'microsoft/Phi-3-mini-4k-instruct', label: 'Phi-3 mini 4k' },
-  { value: 'mistralai/Mistral-7B-Instruct-v0.2', label: 'Mistral 7B Instruct' },
-  { value: 'meta-llama/Meta-Llama-3-8B-Instruct', label: 'Llama 3 8B Instruct' },
-  { value: 'deepseek-ai/DeepSeek-R1-Distill-Llama-8B', label: 'DeepSeek-R1 Distill 8B' },
+  { value: 'microsoft/Phi-3-mini-4k-instruct', label: 'Phi-3 mini 4k · open' },
+  { value: 'deepseek-ai/DeepSeek-R1-Distill-Llama-8B', label: 'DeepSeek-R1 Distill 8B · open' },
+  { value: 'google/gemma-2b-it', label: 'Gemma 2B Instruct', gated: true },
+  { value: 'mistralai/Mistral-7B-Instruct-v0.2', label: 'Mistral 7B Instruct', gated: true },
+  { value: 'meta-llama/Meta-Llama-3-8B-Instruct', label: 'Llama 3 8B Instruct', gated: true },
 ]
-const DEFAULT_SERVE_MODEL = 'meta-llama/Meta-Llama-3-8B-Instruct'
+// Phi-3 mini: open (MIT), fits 1×3090, quick cold-start — the safest first success.
+const DEFAULT_SERVE_MODEL = 'microsoft/Phi-3-mini-4k-instruct'
 const CUSTOM_IMAGE_OPTION = 'custom'
 const DEFAULT_IMAGE = 'pytorch'
 
@@ -842,6 +846,12 @@ export default function RenterPodsPage() {
   const [extendMsg, setExtendMsg] = useState<Record<string, string>>({})
   // One-time launch credentials (root_password + jupyter_token). Cleared on dismiss.
   const [reveal, setReveal] = useState<LaunchReveal | null>(null)
+  // One-time launch credentials (root_password + jupyter_token) kept per pod for
+  // the SESSION so the pod card's "Copy all" can include them once the pod is
+  // live — the backend never returns them again after the 201, and the SSH root
+  // password isn't in the access_url, so without this the card copy-all is
+  // missing the password the renter needs to SSH in.
+  const [podCreds, setPodCreds] = useState<Record<string, { rootPassword: string; jupyterToken: string }>>({})
   // Pods-first redesign: the launch flow lives in a modal (opened from the header).
   const [launchModalOpen, setLaunchModalOpen] = useState(false)
   const [launch, setLaunch] = useState<LaunchState>({
@@ -1160,6 +1170,17 @@ export default function RenterPodsPage() {
           rootPassword: data.root_password || '',
           jupyterToken: data.jupyter_token || '',
         })
+        // Also keep them keyed by pod id so the pod card's one-click "Copy all"
+        // can include the SSH root password once the pod is live this session.
+        if (newId != null) {
+          setPodCreds((m) => ({
+            ...m,
+            [String(newId)]: {
+              rootPassword: data.root_password || '',
+              jupyterToken: data.jupyter_token || '',
+            },
+          }))
+        }
       }
 
       // Reset the form (fresh token) and refresh the list immediately. The GPU
@@ -1839,18 +1860,27 @@ export default function RenterPodsPage() {
                   disabled={!isLive}
                 >
                   {SERVE_MODELS.map((m) => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
+                    <option key={m.value} value={m.value}>{m.gated ? `${m.label} · needs HF license` : m.label}</option>
                   ))}
                 </select>
+                {/* Serve always runs tensor-parallel = GPU count; make that explicit. */}
                 <p className="pod-help">
                   <Bi
-                    en={`Served with vLLM as an OpenAI-compatible /v1 endpoint, tensor-parallel across ${launch.gpuCount} GPU${launch.gpuCount > 1 ? 's' : ''}. The public URL appears once the model loads.`}
-                    ar={`تُقدَّم عبر vLLM كنقطة /v1 متوافقة مع OpenAI، بتوازٍ موتّري عبر ${launch.gpuCount} معالج. يظهر الرابط العام بعد تحميل النموذج.`}
+                    en={`Served with vLLM as an OpenAI-compatible /v1 endpoint · tensor-parallel = ${launch.gpuCount} GPU${launch.gpuCount > 1 ? 's' : ''} (automatic). The public URL appears once the model loads.`}
+                    ar={`تُقدَّم عبر vLLM كنقطة /v1 متوافقة مع OpenAI · التوازي الموتّري = ${launch.gpuCount} معالج (تلقائي). يظهر الرابط العام بعد تحميل النموذج.`}
                   />
                 </p>
+                {SERVE_MODELS.find((m) => m.value === launch.serveModel)?.gated && (
+                  <p className="pod-help pod-help-reserved">
+                    <Bi
+                      en="This model is license-gated on Hugging Face — it only loads if the provider has accepted access. Prefer an “· open” model for a guaranteed first launch."
+                      ar="هذا النموذج مقيّد بترخيص على Hugging Face — لا يُحمَّل إلا إذا قبل المزوّد الوصول. يُفضَّل نموذج «مفتوح» لضمان أول تشغيل."
+                    />
+                  </p>
+                )}
               </div>
               <div className="pod-field">
-                <label htmlFor="pod-serve-ctx" className="pod-label"><Bi en="Max context" ar="أقصى سياق" /></label>
+                <label htmlFor="pod-serve-ctx" className="pod-label"><Bi en="Max context length" ar="أقصى طول للسياق" /></label>
                 <select
                   id="pod-serve-ctx"
                   className="select"
@@ -1863,7 +1893,7 @@ export default function RenterPodsPage() {
                   ))}
                 </select>
                 <p className="pod-help">
-                  <Bi en="Longer context needs more VRAM. Lower it if the model won't fit." ar="السياق الأطول يحتاج ذاكرة أكبر. قلّله إن لم يتّسع النموذج." />
+                  <Bi en="Total tokens shared by prompt + output (vLLM max-model-len). Longer needs more VRAM — lower it if the model won't fit." ar="إجمالي الرموز المشتركة بين الإدخال والإخراج (max-model-len في vLLM). الأطول يحتاج ذاكرة أكبر — قلّله إن لم يتّسع النموذج." />
                 </p>
               </div>
             </>
@@ -2373,13 +2403,18 @@ export default function RenterPodsPage() {
                                 `Pod #${id}`,
                                 pod.gpu_type ? `GPU: ${displayGpuType(pod.gpu_type)}` : null,
                                 `Jupyter: ${pod.access_url}`,
+                                podCreds[id]?.jupyterToken ? `Jupyter token: ${podCreds[id].jupyterToken}` : null,
                                 pod.ssh_command ? `SSH: ${pod.ssh_command}` : null,
+                                // Root password is one-time (never on GET /pods); include it
+                                // from the launch we captured this session so one click gives
+                                // EVERYTHING needed to SSH in.
+                                podCreds[id]?.rootPassword ? `SSH root password: ${podCreds[id].rootPassword}` : null,
                               ]
                                 .filter(Boolean)
                                 .join('\n'),
                             )
                           }
-                          aria-label="Copy all pod connection details"
+                          aria-label="Copy all pod connection details and credentials"
                         >
                           {copied === `all-${id}`
                             ? <Bi en="✓ Copied all" ar="✓ نُسخ الكل" />
