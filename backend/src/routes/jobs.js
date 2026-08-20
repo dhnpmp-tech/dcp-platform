@@ -3468,14 +3468,37 @@ router.post('/:job_id/endpoint-ready', (req, res) => {
     const portNum = toFiniteInt(port, { min: 1024, max: 65535 });
     if (!portNum) return res.status(400).json({ error: 'Invalid port' });
 
-    const endpointUrl = `http://${resolvedIp}:${portNum}/v1`;
+    // Public /v1 URL. Native nodes sit behind NAT and are reachable from the VPS
+    // ONLY over the WireGuard mesh, so — exactly like the interactive-pod Jupyter
+    // relay — we front the serve port with a TLS-terminated public forwarder on
+    // api.dcp.sa. This also keeps the provider machine INVISIBLE (renter never
+    // sees the raw provider IP). A provider that reports a public IP and no mesh
+    // (e.g. a burst/marketplace box) keeps the direct http URL.
+    const meshIp = String((req.body && req.body.wg_mesh_ip) || '');
+    let endpointUrl;
+    let servePortStored = portNum;
+    if (/^10\.[89]\.\d+\.\d+$/.test(meshIp)) {
+      let relay;
+      try {
+        relay = invokePodRelay(['serve', String(job.job_id), meshIp, String(portNum)]);
+      } catch (e) {
+        console.error('[vllm] serve relay start failed:', e.message);
+        return res.status(502).json({ error: 'Serve relay setup failed' });
+      }
+      const pub = toFiniteInt(relay && relay.pub, { min: 1, max: 65535 });
+      if (!pub) return res.status(502).json({ error: 'Serve relay returned an invalid port' });
+      endpointUrl = `https://api.dcp.sa:${pub}/v1`;
+      servePortStored = pub;
+    } else {
+      endpointUrl = `http://${resolvedIp}:${portNum}/v1`;
+    }
     const now = new Date().toISOString();
 
     runStatement(
       `UPDATE jobs SET endpoint_url = ?, serve_port = ?, status = 'running',
         progress_phase = 'serving', progress_updated_at = ?,
         started_at = COALESCE(started_at, ?) WHERE id = ?`,
-      endpointUrl, portNum, now, now, job.id
+      endpointUrl, servePortStored, now, now, job.id
     );
     recordLifecycleEvent(job, 'job.endpoint.ready', {
       status: 'running',

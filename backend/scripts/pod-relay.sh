@@ -217,14 +217,56 @@ JSON
   printf '{"jpub":%s,"spub":%s}\n' "${jpub}" "${spub}"
 }
 
+# ── serve ────────────────────────────────────────────────────────────────--
+# A vllm_serve pod exposes ONE OpenAI-compatible port (container :8000) that the
+# renter reaches as a public https://api.dcp.sa:<pub>/v1. We allocate a single
+# public port in the (TLS-terminating) Jupyter range and forward it to the pod's
+# mesh_ip:serve_port. State is written with the SAME jpub/jpid keys cmd_stop
+# reads, so teardown needs no serve-specific branch.
+cmd_serve() {
+  local job_id mesh_ip vport
+  job_id="$(sanitize_job_id "${1:?job_id required}")"
+  mesh_ip="${2:?wg_mesh_ip required}"
+  vport="${3:?serve_host_port required}"
+
+  is_uint "${vport}" || die "serve_host_port not numeric: ${vport}"
+  [[ "${mesh_ip}" =~ ^10\.(8|9)\.[0-9]+\.[0-9]+$ ]] \
+    || die "wg_mesh_ip outside the WG mesh (10.8/10.9): ${mesh_ip}"
+
+  command -v socat >/dev/null 2>&1 || die "socat not installed (apt-get install -y socat)"
+  command -v ss    >/dev/null 2>&1 || die "ss not found (install iproute2)"
+
+  mkdir -p "${STATE_DIR}"
+  if [[ -f "$(state_file "${job_id}")" ]]; then
+    log "serve ${job_id}: existing relay found — replacing"
+    cmd_stop "${job_id}" >/dev/null
+  fi
+
+  local vpub vpid
+  vpub="$(alloc_port "${JPUB_MIN}" "${JPUB_MAX}")" \
+    || die "no free public port in ${JPUB_MIN}-${JPUB_MAX}"
+  # TLS-terminate on the VPS so the public /v1 is https; the upstream vLLM speaks
+  # plain HTTP but only inside the WireGuard mesh.
+  vpid="$(spawn_forwarder "${vpub}" "${mesh_ip}" "${vport}" tls)"
+
+  local file; file="$(state_file "${job_id}")"
+  cat > "${file}" <<JSON
+{"job_id":"${job_id}","mesh_ip":"${mesh_ip}","serve_port":${vport},"jpub":${vpub},"jpid":${vpid}}
+JSON
+
+  log "serve ${job_id}: ${mesh_ip}:${vport}→:${vpub} (pid ${vpid}, tls)"
+  printf '{"pub":%s}\n' "${vpub}"
+}
+
 # ── dispatch ─────────────────────────────────────────────────────────────--
 
 main() {
   local action="${1:-}"
   case "${action}" in
     start) shift; cmd_start "$@" ;;
+    serve) shift; cmd_serve "$@" ;;
     stop)  shift; cmd_stop  "$@" ;;
-    *)     die "usage: pod-relay.sh start <job_id> <wg_mesh_ip> <jport> <sport> | stop <job_id>" ;;
+    *)     die "usage: pod-relay.sh start <job_id> <wg_mesh_ip> <jport> <sport> | serve <job_id> <wg_mesh_ip> <serve_port> | stop <job_id>" ;;
   esac
 }
 

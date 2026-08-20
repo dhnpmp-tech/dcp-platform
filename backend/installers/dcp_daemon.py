@@ -7578,10 +7578,16 @@ def run_vllm_serve_job(task_spec, job_id=None):
     )
 
     # Start container detached — bridge network so the port is accessible from outside
-    # For TP>1, pin the first N devices with the embedded-quote form Docker needs
-    # (unquoted "device=0,1,2,3" comma-splits → "cannot set both Count and
-    # DeviceIDs"; the interactive-pod path proved the quoted form works).
-    gpus_arg = "all" if tp_size <= 1 else f'"device={",".join(str(i) for i in range(tp_size))}"'
+    # GPU pinning. Prefer the exact device set the backend assigned (multi-tenant
+    # nodes hand out specific free indices, e.g. "device=1,2"); fall back to the
+    # first N devices for a bare TP request. Embedded-quote form is required —
+    # unquoted "device=0,1,2,3" comma-splits → "cannot set both Count and
+    # DeviceIDs" (the interactive-pod path proved the quoted form works).
+    _assigned_gpus = task_spec.get("gpus")
+    if isinstance(_assigned_gpus, str) and _assigned_gpus.startswith("device="):
+        gpus_arg = f'"{_assigned_gpus}"'
+    else:
+        gpus_arg = "all" if tp_size <= 1 else f'"device={",".join(str(i) for i in range(tp_size))}"'
     docker_cmd = [
         "docker", "run", "-d",
         "--gpus", gpus_arg,
@@ -7721,14 +7727,23 @@ def run_vllm_serve_job(task_spec, job_id=None):
         subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
         return {"success": False, "error": "vLLM endpoint did not become healthy within 5 minutes"}
 
-    # Report endpoint ready to backend
+    # Report endpoint ready to backend. Include the WireGuard mesh IP so the VPS
+    # can front the serve port with a public TLS relay (NAT'd nodes aren't
+    # publicly reachable and the raw provider IP must stay invisible to renters).
     public_ip = _get_public_ip()
+    endpoint_payload = {
+        "api_key": API_KEY,
+        "port": port,
+        "provider_ip": public_ip,
+    }
     try:
-        http_post(f"{API_URL}/api/jobs/{job_id}/endpoint-ready", {
-            "api_key": API_KEY,
-            "port": port,
-            "provider_ip": public_ip,
-        }, timeout=15)
+        wg_ip = _detect_wg_mesh_ip()
+        if wg_ip:
+            endpoint_payload["wg_mesh_ip"] = wg_ip
+    except Exception as _wg_err:
+        log.debug(f"vllm serve: _detect_wg_mesh_ip failed: {_wg_err}")
+    try:
+        http_post(f"{API_URL}/api/jobs/{job_id}/endpoint-ready", endpoint_payload, timeout=15)
     except Exception as e:
         log.warning(f"Failed to report endpoint-ready: {e}")
 

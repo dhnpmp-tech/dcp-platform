@@ -3705,6 +3705,57 @@ select.gpu-sort:focus-visible { outline: 2px solid var(--rt-accent); outline-off
   color: var(--ink-2);
 }
 
+/* Mode toggle: Notebook vs Serve (segmented, full-width, above the form) */
+.pod-mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.pod-mode-toggle button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 12px 16px;
+  cursor: pointer;
+  text-align: start;
+  background: color-mix(in oklab, var(--ink) 13%, var(--paper));
+  border: 1px solid color-mix(in oklab, var(--ink) 18%, var(--hair));
+  border-radius: 9px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  transition: border-color .15s, background .15s;
+}
+.pod-mode-toggle button strong {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--ink);
+}
+.pod-mode-toggle button span {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .03em;
+  color: var(--mut);
+}
+.pod-mode-toggle button:hover:not(:disabled) { border-color: var(--rt-accent); }
+.pod-mode-toggle button.selected {
+  border-color: var(--rt-accent);
+  background: color-mix(in oklab, var(--rt-accent) 16%, var(--paper));
+  box-shadow: inset 0 0 0 1px var(--rt-accent);
+}
+.pod-mode-toggle button.selected strong { color: var(--rt-accent); }
+.pod-mode-toggle button.selected span { color: var(--ink-2); }
+.pod-mode-toggle button:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Serve endpoint hint under the /v1 details */
+.pod-serve-hint {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
 /* Connection-details header with one-click "Copy all" */
 .pod-access-hd {
   display: flex;

@@ -1,7 +1,7 @@
 // ============================================================================
 // /api/pods — Interactive GPU pod lifecycle (RunPod-style Jupyter + SSH).
 //
-// A pod is just a JOB with job_type = 'interactive_pod', dispatched through the
+// A pod is just a JOB with job_type IN ('interactive_pod','vllm_serve'), dispatched through the
 // same job-poll path every other job uses (GET /api/providers/jobs/next →
 // buildNextPendingJob → daemon execute_job switch → run_interactive_pod). It is
 // NOT routed through the dead heartbeat pending_tasks path.
@@ -88,7 +88,7 @@ function pickBurstPorts() {
   try {
     const rows = db.all(
       `SELECT pod_jpub, pod_spub FROM jobs
-        WHERE job_type = 'interactive_pod' AND burst_external_id IS NOT NULL
+        WHERE job_type IN ('interactive_pod','vllm_serve') AND burst_external_id IS NOT NULL
           AND status IN ('pulling','running')`
     );
     for (const r of rows) {
@@ -484,7 +484,7 @@ function resolveGpuType(rawType, neededGpus = 1) {
   for (const row of db.all(
     `SELECT provider_id, SUM(COALESCE(gpu_count, 1)) AS used
        FROM jobs
-      WHERE job_type = 'interactive_pod'
+      WHERE job_type IN ('interactive_pod','vllm_serve')
         AND status IN ('queued','pending','assigned','provisioning','pulling','running')
       GROUP BY provider_id`
   )) usedByProvider[row.provider_id] = Number(row.used) || 0;
@@ -561,7 +561,7 @@ function resolvePodProvider(requestedProviderId) {
           AND NOT EXISTS (
             SELECT 1 FROM jobs jp
              WHERE jp.provider_id = p.id
-               AND jp.job_type = 'interactive_pod'
+               AND jp.job_type IN ('interactive_pod','vllm_serve')
                AND jp.status IN ('queued','assigned','pulling','running'))`,
       requestedProviderId, tenMinAgo, POD_MIN_VRAM_MIB
     );
@@ -592,7 +592,7 @@ function resolvePodProvider(requestedProviderId) {
         AND NOT EXISTS (
           SELECT 1 FROM jobs jp
            WHERE jp.provider_id = p.id
-             AND jp.job_type = 'interactive_pod'
+             AND jp.job_type IN ('interactive_pod','vllm_serve')
              AND jp.status IN ('queued','assigned','pulling','running'))
       GROUP BY p.id
       ORDER BY active_jobs ASC, p.last_heartbeat DESC
@@ -658,9 +658,26 @@ function workspaceNote(tier /* gpuTypeLabel unused: kept generic for invisibilit
 // Shape a job row into the public pod view.
 function toPodView(job) {
   const tier = podWorkspaceTier(job);
+  // Serve pods carry their model + TP in the signed task_spec; surface them (and
+  // the /v1 endpoint_url) so the UI can render a Serve pod without leaking the
+  // provider machine.
+  let serveModel = null;
+  let serveTp = null;
+  try {
+    if (job.job_type === 'vllm_serve' && job.task_spec) {
+      const spec = JSON.parse(job.task_spec);
+      serveModel = spec.model || null;
+      serveTp = spec.tensor_parallel_size || null;
+    }
+  } catch (_) { /* unparseable spec → null fields */ }
   return {
     id: job.job_id,
     status: job.status,
+    job_type: job.job_type || 'interactive_pod',
+    mode: job.job_type === 'vllm_serve' ? 'serve' : 'notebook',
+    endpoint_url: job.endpoint_url || null,
+    serve_model: serveModel,
+    tensor_parallel_size: serveTp,
     access_url: job.access_url || null,
     ssh_command: job.ssh_command || null,
     // INVISIBILITY: never expose provider_id or the raw machine name to a renter.
@@ -702,7 +719,7 @@ router.get('/', requireRenter, (req, res) => {
       `SELECT j.*, p.gpu_model AS provider_gpu_type, p.is_burst AS is_burst
          FROM jobs j
     LEFT JOIN providers p ON p.id = j.provider_id
-        WHERE j.renter_id = ? AND j.job_type = 'interactive_pod'
+        WHERE j.renter_id = ? AND j.job_type IN ('interactive_pod','vllm_serve')
         ORDER BY j.created_at DESC LIMIT ?`,
       req.renter.id, limit
     );
@@ -790,7 +807,7 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
       : MAX_ACTIVE_PODS_PER_RENTER;
     const activePods = db.get(
       `SELECT COUNT(*) AS n FROM jobs
-        WHERE renter_id = ? AND job_type = 'interactive_pod'
+        WHERE renter_id = ? AND job_type IN ('interactive_pod','vllm_serve')
           AND status IN ('pending','queued','assigned','pulling','running')`,
       req.renter.id
     );
@@ -830,6 +847,38 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
     // clamped to the chosen provider's free GPUs below (native nodes only — a
     // burst/RunPod pod is always a single external instance).
     const requestedGpuCount = toFiniteInt(body.gpu_count, { min: 1, max: 8 }) || 1;
+
+    // ── Serve mode (Tareq P0): one-click managed vLLM OpenAI endpoint ──────────
+    // A serve pod runs `vllm serve <model> --tensor-parallel-size <gpu_count>` and
+    // exposes a public /v1 URL — no Jupyter/SSH. TP defaults to the pod's GPU
+    // count so a multi-GPU pod serves ONE bigger model split across its GPUs.
+    const isServe = body.mode === 'serve';
+    const jobType = isServe ? 'vllm_serve' : 'interactive_pod';
+    // Enforced daemon-side too (run_vllm_serve_job whitelist); mirrored here to
+    // return a clear 400 instead of a silent TinyLlama substitution.
+    const SERVE_MODELS = new Set([
+      'mistralai/Mistral-7B-Instruct-v0.2',
+      'meta-llama/Meta-Llama-3-8B-Instruct',
+      'microsoft/Phi-3-mini-4k-instruct',
+      'google/gemma-2b-it',
+      'TinyLlama/TinyLlama-1.1B-Chat-v1.0',
+      'deepseek-ai/DeepSeek-R1-Distill-Llama-8B',
+    ]);
+    let serveModel = null;
+    let serveMaxLen = 4096;
+    let serveDtype = 'float16';
+    if (isServe) {
+      serveModel = String((params.MODEL || body.model || '')).trim();
+      if (!SERVE_MODELS.has(serveModel)) {
+        return res.status(400).json({
+          error: 'Serve mode requires a supported model. Pass params.MODEL as one of the allowed vLLM models.',
+          code: 'INVALID_SERVE_MODEL',
+          allowed_models: Array.from(SERVE_MODELS),
+        });
+      }
+      serveMaxLen = toFiniteInt(body.max_model_len, { min: 512, max: 32768 }) || 4096;
+      serveDtype = ['float16', 'bfloat16', 'float32'].includes(body.dtype) ? body.dtype : 'float16';
+    }
 
     // Reject weak Jupyter tokens (same policy as jobs.js:1238). The token is
     // baked into a publicly-reachable access_url, so a guessable value is RCE.
@@ -902,13 +951,22 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
     // hand out the free ones. Burst (RunPod) pods are single external instances —
     // they always use exactly 1 GPU and are not index-sliced here.
     const launchIsBurst = Number(provider.is_burst) === 1;
+    // Serve pods run vLLM on a native multi-GPU node reached over the WG mesh; a
+    // burst/RunPod instance has no daemon poll and no mesh relay path. Reject
+    // here — before any credit debit — with a clear pointer.
+    if (isServe && launchIsBurst) {
+      return res.status(400).json({
+        error: 'Serve mode needs a native GPU node. The selected GPU type is only available as a burst instance — pick a native GPU (e.g. RTX 3090) or use Notebook mode.',
+        code: 'SERVE_REQUIRES_NATIVE',
+      });
+    }
     const providerGpuTotal = Math.max(1, resolvePodGpuCount(provider));
     let gpuCount = launchIsBurst ? 1 : Math.min(requestedGpuCount, providerGpuTotal);
     let gpusDeviceValue = null; // Docker --gpus value baked into the signed task_spec
     if (!launchIsBurst && providerGpuTotal > 1) {
       const usedIndexRows = db.all(
         `SELECT gpu_indices FROM jobs
-          WHERE provider_id = ? AND job_type = 'interactive_pod'
+          WHERE provider_id = ? AND job_type IN ('interactive_pod','vllm_serve')
             AND status IN ('queued','pending','assigned','provisioning','pulling','running')
             AND gpu_indices IS NOT NULL AND gpu_indices != ''`,
         provider.id
@@ -982,7 +1040,7 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
     // then sign the serialized string. The stored task_spec string and the
     // signed bytes MUST be identical (the daemon recomputes the HMAC over the
     // task_spec it receives) — so we stringify once and reuse that exact string.
-    const taskSpecObj = {
+    let taskSpecObj = {
       image: imageResult.image,
       jupyter_token: jupyterToken,
       root_password: rootPassword,
@@ -1027,6 +1085,24 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
       }
     } catch (volErr) {
       console.error('[pods] volume lookup failed (free same-provider tier still applies):', volErr.message);
+    }
+
+    // Serve mode overrides the interactive spec with a vllm_serve spec — built
+    // here so serve reuses ALL the provider-resolution / multi-GPU-allocation /
+    // quote / debit / refund machinery above unchanged. A serve pod is a
+    // stateless /v1 endpoint: no Jupyter/SSH, no workspace volume. TP = GPU count;
+    // gpus carries the exact device set the allocator assigned on this node.
+    if (isServe) {
+      taskSpecObj = {
+        serve_mode: true,
+        model: serveModel,
+        max_model_len: serveMaxLen,
+        dtype: serveDtype,
+        tensor_parallel_size: gpuCount,
+        duration_minutes: durationMinutes,
+      };
+      if (gpusDeviceValue) taskSpecObj.gpus = gpusDeviceValue;
+      workspaceTier = 'ephemeral';
     }
     const taskSpecStr = JSON.stringify(taskSpecObj);
     const taskSpecHmac = signTaskSpec(taskSpecStr);
@@ -1092,11 +1168,12 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
              (job_id, provider_id, renter_id, job_type, status,
               task_spec, task_spec_hmac, duration_minutes, max_duration_seconds,
               cost_halala, submitted_at, created_at, gpu_count, gpu_indices)
-           VALUES (?, ?, ?, 'interactive_pod', 'queued', ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+           VALUES (?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).run(
           job_id,
           provider.id,
           req.renter.id,
+          jobType,
           taskSpecStr,
           taskSpecHmac,
           durationMinutes,
@@ -1181,6 +1258,28 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
       });
     } catch (_) { /* funnel best-effort */ }
 
+    if (isServe) {
+      // Serve pods have NO Jupyter/SSH credentials — the deliverable is the /v1
+      // URL, which appears on GET /api/pods/:id (endpoint_url) once the model is
+      // loaded and /v1/models responds.
+      return res.status(201).json({
+        id: job_id,
+        status: 'starting',
+        mode: 'serve',
+        gpu_type: provider.gpu_model || null,
+        model: serveModel,
+        tensor_parallel_size: gpuCount,
+        gpu_count: quoteGpuCount,
+        max_model_len: serveMaxLen,
+        duration_minutes: durationMinutes,
+        endpoint_hint: 'The OpenAI-compatible /v1 URL appears on GET /api/pods/:id (endpoint_url) once the model is loaded and /v1/models responds.',
+        quoted_cost_halala: quoteHalala,
+        quoted_cost_sar: Number((quoteHalala / 100).toFixed(2)),
+        rate_halala_per_gpu_second: ratePerGpuSecond,
+        billing: 'prepaid — unused minutes are refunded when you stop the pod early',
+      });
+    }
+
     return res.status(201).json({
       id: job_id,
       status: 'starting',
@@ -1213,7 +1312,7 @@ router.get('/:id', requireRenter, (req, res) => {
       `SELECT j.*, p.gpu_model AS provider_gpu_type, p.is_burst AS is_burst
          FROM jobs j
     LEFT JOIN providers p ON p.id = j.provider_id
-        WHERE (j.job_id = ? OR j.id = ?) AND j.job_type = 'interactive_pod'`,
+        WHERE (j.job_id = ? OR j.id = ?) AND j.job_type IN ('interactive_pod','vllm_serve')`,
       req.params.id, req.params.id
     );
     if (!job) {
@@ -1388,7 +1487,7 @@ router.delete('/:id', requireRenter, (req, res) => {
       `SELECT j.*, p.is_burst AS is_burst
          FROM jobs j
     LEFT JOIN providers p ON p.id = j.provider_id
-        WHERE (j.job_id = ? OR j.id = ?) AND j.job_type = 'interactive_pod' AND j.renter_id = ?`,
+        WHERE (j.job_id = ? OR j.id = ?) AND j.job_type IN ('interactive_pod','vllm_serve') AND j.renter_id = ?`,
       req.params.id, req.params.id, req.renter.id
     );
     if (!job) {
@@ -1554,7 +1653,7 @@ router.post('/:id/extend', requireRenter, withFinancialIdempotency({
 
     const job = db.get(
       `SELECT * FROM jobs
-        WHERE (job_id = ? OR id = ?) AND job_type = 'interactive_pod' AND renter_id = ?`,
+        WHERE (job_id = ? OR id = ?) AND job_type IN ('interactive_pod','vllm_serve') AND renter_id = ?`,
       req.params.id, req.params.id, req.renter.id
     );
     if (!job) return res.status(404).json({ error: 'Pod not found' });

@@ -90,6 +90,19 @@ const IMAGE_PRESETS: ImagePreset[] = [
   { value: 'cuda', label: 'CUDA base', labelAr: 'CUDA أساسي' },
   { value: 'ubuntu', label: 'Ubuntu base', labelAr: 'Ubuntu أساسي' },
 ]
+
+// Serve-mode models — mirrors the backend + daemon whitelist (run_vllm_serve_job).
+// Ordered small → large so the default is a safe single-GPU pick; multi-GPU pods
+// serve the bigger ones tensor-parallel (TP = GPU count).
+const SERVE_MODELS: { value: string; label: string }[] = [
+  { value: 'TinyLlama/TinyLlama-1.1B-Chat-v1.0', label: 'TinyLlama 1.1B · fast/tiny' },
+  { value: 'google/gemma-2b-it', label: 'Gemma 2B Instruct' },
+  { value: 'microsoft/Phi-3-mini-4k-instruct', label: 'Phi-3 mini 4k' },
+  { value: 'mistralai/Mistral-7B-Instruct-v0.2', label: 'Mistral 7B Instruct' },
+  { value: 'meta-llama/Meta-Llama-3-8B-Instruct', label: 'Llama 3 8B Instruct' },
+  { value: 'deepseek-ai/DeepSeek-R1-Distill-Llama-8B', label: 'DeepSeek-R1 Distill 8B' },
+]
+const DEFAULT_SERVE_MODEL = 'meta-llama/Meta-Llama-3-8B-Instruct'
 const CUSTOM_IMAGE_OPTION = 'custom'
 const DEFAULT_IMAGE = 'pytorch'
 
@@ -230,6 +243,13 @@ const VRAM_FILTER_OPTIONS = [0, 8, 12, 16, 24, 32, 48, 80, 141, 180]
 interface Pod {
   id: number | string
   status: string
+  // Serve pods expose these instead of Jupyter/SSH: a public OpenAI /v1 URL,
+  // the served model, and the tensor-parallel size. mode distinguishes them.
+  job_type?: string | null
+  mode?: 'notebook' | 'serve' | null
+  endpoint_url?: string | null
+  serve_model?: string | null
+  tensor_parallel_size?: number | null
   access_url?: string | null
   ssh_command?: string | null
   // GPU TYPE only — never a machine name or provider id (backend leak-fix
@@ -279,6 +299,12 @@ interface LaunchState {
   imageChoice: string
   // Free-form Docker image ref, only used when imageChoice === CUSTOM_IMAGE_OPTION.
   customImage: string
+  // Launch mode: 'notebook' (Jupyter+SSH interactive_pod) or 'serve' (managed
+  // vLLM /v1 endpoint, TP = gpuCount). Multi-GPU defaults to serve.
+  mode: 'notebook' | 'serve'
+  // Serve-mode: the vLLM model id + max context length. Ignored in notebook mode.
+  serveModel: string
+  serveMaxLen: number
   submitting: boolean
   error: string
   creditError: LaunchCreditError | null
@@ -825,6 +851,9 @@ export default function RenterPodsPage() {
     notebookToken: generateNotebookToken(),
     imageChoice: DEFAULT_IMAGE,
     customImage: '',
+    mode: 'notebook',
+    serveModel: DEFAULT_SERVE_MODEL,
+    serveMaxLen: 4096,
     submitting: false,
     error: '',
     creditError: null,
@@ -1060,17 +1089,41 @@ export default function RenterPodsPage() {
     const apiKey = getRenterKey() || ''
     if (!apiKey || launch.submitting) return
 
+    const isServe = launch.mode === 'serve'
     const token = launch.notebookToken.trim()
-    if (token.length < MIN_TOKEN_LENGTH) {
+    // Notebook mode needs a strong Jupyter token; serve mode has no notebook.
+    if (!isServe && token.length < MIN_TOKEN_LENGTH) {
       setLaunch((l) => ({ ...l, error: `Notebook token must be at least ${MIN_TOKEN_LENGTH} characters.`, creditError: null }))
       return
     }
 
     const image = resolveImage(launch)
-    if (launch.imageChoice === CUSTOM_IMAGE_OPTION && !image) {
+    if (!isServe && launch.imageChoice === CUSTOM_IMAGE_OPTION && !image) {
       setLaunch((l) => ({ ...l, error: 'Enter a Docker image reference for a custom pod.', creditError: null }))
       return
     }
+
+    // Serve mode POSTs mode:'serve' + model (backend runs vLLM with TP=gpu_count
+    // on the dedicated vLLM image — no notebook token / image override).
+    const launchBody = isServe
+      ? {
+          mode: 'serve',
+          gpu_type: launch.gpuType || undefined,
+          duration_minutes: launch.durationMinutes,
+          gpu_count: launch.gpuCount,
+          model: launch.serveModel,
+          max_model_len: launch.serveMaxLen,
+        }
+      : {
+          // Launch by GPU TYPE, never provider_id. '' → omit so the backend
+          // auto-picks any available type. The backend resolves gpu_type → an
+          // in-stock provider internally; the renter never sees a provider id.
+          gpu_type: launch.gpuType || undefined,
+          duration_minutes: launch.durationMinutes,
+          gpu_count: launch.gpuCount,
+          image,
+          params: { NOTEBOOK_TOKEN: token },
+        }
 
     setLaunch((l) => ({ ...l, submitting: true, error: '', creditError: null }))
     try {
@@ -1080,16 +1133,7 @@ export default function RenterPodsPage() {
           'Content-Type': 'application/json',
           'x-renter-key': apiKey,
         },
-        body: JSON.stringify({
-          // Launch by GPU TYPE, never provider_id. '' → omit so the backend
-          // auto-picks any available type. The backend resolves gpu_type → an
-          // in-stock provider internally; the renter never sees a provider id.
-          gpu_type: launch.gpuType || undefined,
-          duration_minutes: launch.durationMinutes,
-          gpu_count: launch.gpuCount,
-          image,
-          params: { NOTEBOOK_TOKEN: token },
-        }),
+        body: JSON.stringify(launchBody),
       })
 
       if (res.status === 402) {
@@ -1127,6 +1171,9 @@ export default function RenterPodsPage() {
         notebookToken: generateNotebookToken(),
         imageChoice: launch.imageChoice,
         customImage: launch.customImage,
+        mode: launch.mode,
+        serveModel: launch.serveModel,
+        serveMaxLen: launch.serveMaxLen,
         submitting: false,
         error: '',
         creditError: null,
@@ -1602,7 +1649,9 @@ export default function RenterPodsPage() {
     : selectedType
       ? `Launch is pinned to ${displayGpuType(selectedType.gpu_model)}; the suggestion will not replace it unless you choose it.`
       : 'Launch still uses Auto-pick until you press Use recommended GPU or choose a card.'
-  const launchButtonLabel = selectedType
+  const launchButtonLabel = launch.mode === 'serve'
+    ? (selectedType ? `Serve on ${displayGpuType(selectedType.gpu_model)}` : 'Launch serve endpoint')
+    : selectedType
     ? `Launch ${displayGpuType(selectedType.gpu_model)} pod`
     : 'Launch auto-picked GPU pod'
   const mobileDockStage1Label = workspaceStageBodyOpen ? 'Stage 1 open' : 'Stage 1 collapsed'
@@ -1673,7 +1722,36 @@ export default function RenterPodsPage() {
         <button type="button" className="pod-modal-close" aria-label="Close" onClick={() => setLaunchModalOpen(false)}>×</button>
         <div className="pod-modal-head">
           <h3><Bi en="Launch a pod" ar="تشغيل حاوية" /></h3>
-          <span className="hint"><Bi en="Jupyter + SSH · billed by the second · auto-stops when the time ends" ar="Jupyter + SSH · محاسبة بالثانية · تتوقف تلقائيًا عند انتهاء الوقت" /></span>
+          <span className="hint">{launch.mode === 'serve'
+            ? <Bi en="Managed vLLM /v1 endpoint · tensor-parallel across your GPUs · billed by the second" ar="نقطة vLLM /v1 مُدارة · توازٍ موتّري عبر معالجاتك · محاسبة بالثانية" />
+            : <Bi en="Jupyter + SSH · billed by the second · auto-stops when the time ends" ar="Jupyter + SSH · محاسبة بالثانية · تتوقف تلقائيًا عند انتهاء الوقت" />}</span>
+        </div>
+
+        {/* Mode: Notebook (Jupyter+SSH) vs Serve (managed vLLM /v1, TP=GPU count).
+            Tareq P0: multi-GPU defaults to Serve — see the GPU-count handler. */}
+        <div className="pod-mode-toggle" role="radiogroup" aria-label={lang === 'ar' ? 'الوضع' : 'Mode'}>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={launch.mode === 'notebook'}
+            className={launch.mode === 'notebook' ? 'selected' : ''}
+            onClick={() => setLaunch((l) => ({ ...l, mode: 'notebook' }))}
+            disabled={!isLive}
+          >
+            <strong><Bi en="Notebook" ar="دفتر" /></strong>
+            <span><Bi en="Jupyter + SSH" ar="Jupyter + SSH" /></span>
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={launch.mode === 'serve'}
+            className={launch.mode === 'serve' ? 'selected' : ''}
+            onClick={() => setLaunch((l) => ({ ...l, mode: 'serve' }))}
+            disabled={!isLive}
+          >
+            <strong><Bi en="Serve a model" ar="خدمة نموذج" /></strong>
+            <span><Bi en="vLLM /v1 · tensor-parallel" ar="vLLM /v1 · توازٍ موتّري" /></span>
+          </button>
         </div>
 
         <div className="pod-form-grid">
@@ -1726,7 +1804,7 @@ export default function RenterPodsPage() {
                     role="radio"
                     aria-checked={launch.gpuCount === n}
                     className={launch.gpuCount === n ? 'selected' : ''}
-                    onClick={() => setLaunch((l) => ({ ...l, gpuCount: n, ...keepFundingLaunchError(l.error, l.creditError) }))}
+                    onClick={() => setLaunch((l) => ({ ...l, gpuCount: n, mode: n >= 2 ? 'serve' : l.mode, ...keepFundingLaunchError(l.error, l.creditError) }))}
                     disabled={!isLive}
                   >
                     <strong>{n}×</strong>
@@ -1736,12 +1814,60 @@ export default function RenterPodsPage() {
               })}
             </div>
             <p className="pod-help">
-              <Bi
-                en="Running a large model? Combine 2–4 GPUs on one node for more VRAM. To tensor-parallel serve it (--tensor-parallel-size = GPU count), choose the “vLLM serve” image below — the default PyTorch image ships Jupyter + Torch but not vLLM. Billed per GPU; if a node hasn't enough free GPUs, pick fewer or another type."
-                ar="تشغّل نموذجًا كبيرًا؟ ادمج 2–4 معالجات على نفس الجهاز لمزيد من الذاكرة. للخدمة بالتوازي (‎--tensor-parallel-size = عدد المعالجات) اختر صورة «vLLM serve» أدناه — صورة PyTorch الافتراضية تتضمن Jupyter وTorch لكن دون vLLM. تُحتسب لكل معالج؛ إن لم تتوفر معالجات كافية، اختر عددًا أقل."
-              />
+              {launch.mode === 'serve'
+                ? <Bi
+                    en="Serve splits ONE model across your GPUs — tensor-parallel size = GPU count (automatic). More GPUs → bigger models / more headroom. Billed per GPU; if a node hasn't enough free GPUs, pick fewer or another type."
+                    ar="تقسّم الخدمة نموذجًا واحدًا عبر معالجاتك — حجم التوازي الموتّري = عدد المعالجات (تلقائي). معالجات أكثر ← نماذج أكبر. تُحتسب لكل معالج؛ إن لم تتوفر معالجات كافية اختر عددًا أقل."
+                  />
+                : <Bi
+                    en="Combine 2–4 GPUs on one node for more VRAM. To serve one model tensor-parallel across them, switch to Serve mode above. Billed per GPU; if a node hasn't enough free GPUs, pick fewer or another type."
+                    ar="ادمج 2–4 معالجات لمزيد من الذاكرة. لخدمة نموذج واحد بالتوازي الموتّري عبرها، بدّل إلى وضع الخدمة بالأعلى. تُحتسب لكل معالج؛ إن لم تتوفر معالجات كافية اختر عددًا أقل."
+                  />}
             </p>
           </div>
+
+          {/* Serve model + context — Serve mode only. TP = GPU count (automatic). */}
+          {launch.mode === 'serve' && (
+            <>
+              <div className="pod-field pod-field-wide">
+                <label htmlFor="pod-serve-model" className="pod-label"><Bi en="Model" ar="النموذج" /></label>
+                <select
+                  id="pod-serve-model"
+                  className="select"
+                  value={launch.serveModel}
+                  onChange={(e) => setLaunch((l) => ({ ...l, serveModel: e.target.value }))}
+                  disabled={!isLive}
+                >
+                  {SERVE_MODELS.map((m) => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+                <p className="pod-help">
+                  <Bi
+                    en={`Served with vLLM as an OpenAI-compatible /v1 endpoint, tensor-parallel across ${launch.gpuCount} GPU${launch.gpuCount > 1 ? 's' : ''}. The public URL appears once the model loads.`}
+                    ar={`تُقدَّم عبر vLLM كنقطة /v1 متوافقة مع OpenAI، بتوازٍ موتّري عبر ${launch.gpuCount} معالج. يظهر الرابط العام بعد تحميل النموذج.`}
+                  />
+                </p>
+              </div>
+              <div className="pod-field">
+                <label htmlFor="pod-serve-ctx" className="pod-label"><Bi en="Max context" ar="أقصى سياق" /></label>
+                <select
+                  id="pod-serve-ctx"
+                  className="select"
+                  value={launch.serveMaxLen}
+                  onChange={(e) => setLaunch((l) => ({ ...l, serveMaxLen: Number(e.target.value) }))}
+                  disabled={!isLive}
+                >
+                  {[2048, 4096, 8192, 16384, 32768].map((n) => (
+                    <option key={n} value={n}>{`${n.toLocaleString()} tokens`}</option>
+                  ))}
+                </select>
+                <p className="pod-help">
+                  <Bi en="Longer context needs more VRAM. Lower it if the model won't fit." ar="السياق الأطول يحتاج ذاكرة أكبر. قلّله إن لم يتّسع النموذج." />
+                </p>
+              </div>
+            </>
+          )}
 
           {/* Duration */}
           <div className="pod-field">
@@ -1775,7 +1901,8 @@ export default function RenterPodsPage() {
             </p>
           </div>
 
-          {/* Image */}
+          {/* Image override — notebook mode only (serve uses the dedicated vLLM image). */}
+          {launch.mode !== 'serve' && (
           <div className="pod-field pod-field-wide">
             <label htmlFor="pod-image" className="pod-label">
               <Bi en="Image override" ar="تجاوز الصورة" />
@@ -1816,8 +1943,10 @@ export default function RenterPodsPage() {
               />
             </p>
           </div>
+          )}
 
-          {/* Notebook token */}
+          {/* Notebook token — notebook mode only (serve has no Jupyter). */}
+          {launch.mode !== 'serve' && (
           <div className="pod-field pod-field-wide">
             <label htmlFor="pod-token" className="pod-label">
               <Bi en="Notebook token" ar="رمز الدفتر" />
@@ -1851,6 +1980,7 @@ export default function RenterPodsPage() {
               />
             </p>
           </div>
+          )}
         </div>
 
         {isFundingLaunchError(launch.error, launch.creditError) ? (
@@ -1920,9 +2050,17 @@ export default function RenterPodsPage() {
             )}
           </span>
           <span>
-            <b><Bi en="Runtime" ar="البيئة" /></b>
-            <strong>{selectedRuntimeLabel}</strong>
-            <em>{durationLabel}</em>
+            {launch.mode === 'serve'
+              ? <>
+                  <b><Bi en="Serve" ar="خدمة" /></b>
+                  <strong>{(SERVE_MODELS.find((m) => m.value === launch.serveModel)?.label) || launch.serveModel}</strong>
+                  <em><Bi en={`vLLM · TP=${launch.gpuCount} · ${durationLabel}`} ar={`vLLM · TP=${launch.gpuCount} · ${durationLabel}`} /></em>
+                </>
+              : <>
+                  <b><Bi en="Runtime" ar="البيئة" /></b>
+                  <strong>{selectedRuntimeLabel}</strong>
+                  <em>{durationLabel}</em>
+                </>}
           </span>
           <span>
             <b><Bi en="Estimate" ar="التقدير" /></b>
@@ -2078,7 +2216,10 @@ export default function RenterPodsPage() {
             {pods.map((pod) => {
               const id = String(pod.id)
               const active = isActivePod(pod)
-              const accessReady = !!pod.access_url && active
+              // Serve pods become "ready" when the /v1 endpoint is published;
+              // notebook pods when the Jupyter access_url is set.
+              const isServe = pod.mode === 'serve' || pod.job_type === 'vllm_serve'
+              const accessReady = active && (isServe ? !!pod.endpoint_url : !!pod.access_url)
               const isCopiedSsh = copied === `ssh-${id}`
               const submitted = formatSubmitted(pod)
               return (
@@ -2122,7 +2263,9 @@ export default function RenterPodsPage() {
                           <Bi en="Rental ends in" ar="ينتهي الإيجار خلال" /> <b>{formatCountdown(left)}</b>
                         </span>
                         <span className="pod-clock-sub">
-                          {ending
+                          {isServe
+                            ? <Bi en="Your /v1 endpoint stays live until the rental ends, then the pod is torn down." ar="تبقى نقطة /v1 مباشرة حتى انتهاء الإيجار، ثم تُغلق الحاوية." />
+                            : ending
                             ? <Bi en="Save anything outside /workspace now — /workspace is kept and reattaches to your next pod." ar="احفظ أي شيء خارج /workspace الآن — يُحتفظ بـ /workspace ويُعاد ربطه بحاويتك التالية." />
                             : <Bi en="/workspace is saved and reattaches to your next pod." ar="يُحفظ /workspace ويُعاد ربطه بحاويتك التالية." />}
                         </span>
@@ -2146,7 +2289,75 @@ export default function RenterPodsPage() {
                     )
                   })()}
 
-                  {accessReady ? (
+                  {accessReady && isServe ? (
+                    <div className="pod-access">
+                      <div className="pod-access-hd">
+                        <span className="pod-access-hd-k">
+                          <Bi en="OpenAI-compatible endpoint" ar="نقطة متوافقة مع OpenAI" />
+                        </span>
+                        <button
+                          type="button"
+                          className="btn-sec pod-copy-all"
+                          onClick={() =>
+                            copyText(
+                              `all-${id}`,
+                              [
+                                `Pod #${id}`,
+                                pod.serve_model ? `Model: ${pod.serve_model}` : null,
+                                pod.gpu_type
+                                  ? `GPU: ${displayGpuType(pod.gpu_type)}${pod.tensor_parallel_size && pod.tensor_parallel_size > 1 ? ` ×${pod.tensor_parallel_size} (tensor-parallel)` : ''}`
+                                  : null,
+                                `Base URL: ${pod.endpoint_url}`,
+                                `Models: ${pod.endpoint_url}/models`,
+                                '',
+                                `curl ${pod.endpoint_url}/chat/completions \\`,
+                                '  -H "Content-Type: application/json" \\',
+                                `  -d '{"model":"${pod.serve_model || ''}","messages":[{"role":"user","content":"Hello"}]}'`,
+                              ]
+                                .filter((x) => x !== null)
+                                .join('\n'),
+                            )
+                          }
+                          aria-label="Copy all endpoint details"
+                        >
+                          {copied === `all-${id}`
+                            ? <Bi en="✓ Copied all" ar="✓ نُسخ الكل" />
+                            : <Bi en="⧉ Copy all details" ar="⧉ نسخ كل التفاصيل" />}
+                        </button>
+                      </div>
+                      {pod.serve_model && (
+                        <div className="pod-access-block">
+                          <div className="pod-access-body">
+                            <span className="pod-access-k"><Bi en="Model" ar="النموذج" /></span>
+                            <code className="pod-access-ssh">
+                              {pod.serve_model}
+                              {pod.tensor_parallel_size && pod.tensor_parallel_size > 1 ? `  ·  TP=${pod.tensor_parallel_size}` : ''}
+                            </code>
+                          </div>
+                        </div>
+                      )}
+                      <div className="pod-access-block">
+                        <div className="pod-access-body">
+                          <span className="pod-access-k"><Bi en="Base URL (/v1)" ar="الرابط الأساسي (/v1)" /></span>
+                          <code className="pod-access-ssh">{pod.endpoint_url}</code>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-sec pod-copy"
+                          onClick={() => copyText(`ep-${id}`, pod.endpoint_url as string)}
+                          aria-label="Copy endpoint URL"
+                        >
+                          {copied === `ep-${id}` ? <Bi en="✓ Copied" ar="✓ نُسخ" /> : <Bi en="Copy" ar="نسخ" />}
+                        </button>
+                      </div>
+                      <p className="pod-serve-hint">
+                        <Bi
+                          en="Point any OpenAI SDK at this base URL (no API key needed). It's healthy once /models responds."
+                          ar="وجّه أي SDK من OpenAI إلى هذا الرابط (بدون مفتاح). يصبح جاهزًا عند استجابة ‎/models."
+                        />
+                      </p>
+                    </div>
+                  ) : accessReady ? (
                     <div className="pod-access">
                       <div className="pod-access-hd">
                         <span className="pod-access-hd-k">
@@ -2233,10 +2444,15 @@ export default function RenterPodsPage() {
                           })()}
                         </span>
                         <small>
-                          <Bi
-                            en="Pulling the image and starting Jupyter. Your endpoints — and the rental timer — appear once it's live. A node's first launch can take a couple of minutes."
-                            ar="جارٍ تجهيز البيئة وتشغيل Jupyter. ستظهر نقاط الوصول ومؤقّت الإيجار عند الجاهزية. قد يستغرق أول تشغيل على الجهاز دقيقتين."
-                          />
+                          {isServe
+                            ? <Bi
+                                en="Loading the model and starting the vLLM server (tensor-parallel across your GPUs). Your /v1 URL — and the rental timer — appear once /models responds. First load of an uncached model can take a few minutes."
+                                ar="جارٍ تحميل النموذج وتشغيل خادم vLLM (توازٍ موتّري عبر معالجاتك). يظهر رابط /v1 ومؤقّت الإيجار عند استجابة ‎/models. قد يستغرق أول تحميل لنموذج غير مُخزَّن بضع دقائق."
+                              />
+                            : <Bi
+                                en="Pulling the image and starting Jupyter. Your endpoints — and the rental timer — appear once it's live. A node's first launch can take a couple of minutes."
+                                ar="جارٍ تجهيز البيئة وتشغيل Jupyter. ستظهر نقاط الوصول ومؤقّت الإيجار عند الجاهزية. قد يستغرق أول تشغيل على الجهاز دقيقتين."
+                              />}
                         </small>
                       </span>
                     </div>
