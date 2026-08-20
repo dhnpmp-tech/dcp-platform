@@ -3621,6 +3621,82 @@ select.gpu-sort:focus-visible { outline: 2px solid var(--rt-accent); outline-off
 .pod-gpu-count button.selected span { color: var(--ink-2); }
 .pod-gpu-count button:disabled { opacity: .5; cursor: not-allowed; }
 
+/* GPU type — visual card grid (replaces the old dropdown/picker) */
+.pod-gpu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+.pod-gpu-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 14px;
+  cursor: pointer;
+  text-align: start;
+  background: color-mix(in oklab, var(--ink) 13%, var(--paper));
+  border: 1px solid color-mix(in oklab, var(--ink) 18%, var(--hair));
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  transition: border-color .15s, background .15s;
+}
+.pod-gpu-card strong {
+  font-family: var(--serif);
+  font-size: 15px;
+  line-height: 1.15;
+  font-weight: 400;
+  color: var(--ink);
+}
+.pod-gpu-card span {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .04em;
+  color: var(--mut);
+}
+.pod-gpu-card:hover:not(:disabled) { border-color: var(--rt-accent); }
+.pod-gpu-card.selected {
+  border-color: var(--rt-accent);
+  background: color-mix(in oklab, var(--rt-accent) 16%, var(--paper));
+  box-shadow: inset 0 0 0 1px var(--rt-accent);
+}
+.pod-gpu-card.selected strong { color: var(--rt-accent); }
+.pod-gpu-card.selected span { color: var(--ink-2); }
+.pod-gpu-card:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Compact pre-launch summary (replaces the Stage 1/2/3 review blocks) */
+.pod-launch-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px 20px;
+  margin-top: 20px;
+  padding: 14px 16px;
+  background: color-mix(in oklab, var(--ink) 6%, var(--paper));
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+}
+.pod-launch-summary span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pod-launch-summary b {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 400;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+.pod-launch-summary strong {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--ink);
+}
+.pod-launch-summary em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--ink-2);
+}
+
 /* ── Pods-first redesign: header row + launch modal ── */
 .pod-page-head {
   display: flex;

@@ -1677,23 +1677,36 @@ export default function RenterPodsPage() {
         </div>
 
         <div className="pod-form-grid">
-          {/* GPU type — plain dropdown of launchable types (VRAM + price). */}
+          {/* GPU type — visual card grid (name + VRAM). Price lives in the launch summary. */}
           <div className="pod-field pod-field-wide">
-            <label className="pod-label" htmlFor="pod-gpu-select"><Bi en="GPU" ar="المعالج" /></label>
-            <select
-              id="pod-gpu-select"
-              className="select"
-              value={launch.gpuType}
-              onChange={(e) => selectGpuType(e.target.value)}
-              disabled={!isLive || noLaunchable}
-            >
-              <option value="">{lang === 'ar' ? 'اختيار تلقائي — أي متاح' : 'Auto-pick — any available'}</option>
+            <label className="pod-label"><Bi en="GPU" ar="المعالج" /></label>
+            <div className="pod-gpu-grid" role="radiogroup" aria-label={lang === 'ar' ? 'نوع المعالج' : 'GPU type'}>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={launch.gpuType === ''}
+                className={`pod-gpu-card${launch.gpuType === '' ? ' selected' : ''}`}
+                onClick={() => selectGpuType('')}
+                disabled={!isLive || noLaunchable}
+              >
+                <strong><Bi en="Auto" ar="تلقائي" /></strong>
+                <span><Bi en="any available" ar="أي متاح" /></span>
+              </button>
               {availableGpuTypes.map((g) => (
-                <option key={g.gpu_model} value={g.gpu_model}>
-                  {`${displayGpuType(g.gpu_model)} · ${g.vram_gb} GB${g.sar_per_hour != null ? ` · ${fmtSar(g.sar_per_hour as number)}/hr` : ''}`}
-                </option>
+                <button
+                  key={g.gpu_model}
+                  type="button"
+                  role="radio"
+                  aria-checked={launch.gpuType === g.gpu_model}
+                  className={`pod-gpu-card${launch.gpuType === g.gpu_model ? ' selected' : ''}`}
+                  onClick={() => selectGpuType(g.gpu_model)}
+                  disabled={!isLive}
+                >
+                  <strong>{displayGpuType(g.gpu_model)}</strong>
+                  <span>{g.vram_gb} GB</span>
+                </button>
               ))}
-            </select>
+            </div>
           </div>
           {/* GPU count — multi-GPU SKU (1×/2×/3×/4× → more VRAM on one node) */}
           <div className="pod-field">
@@ -1721,8 +1734,8 @@ export default function RenterPodsPage() {
             </div>
             <p className="pod-help">
               <Bi
-                en="Combine GPUs on one node for more VRAM — billed per GPU, so cost scales with the count. If a node hasn't enough free GPUs, pick fewer or another type."
-                ar="ادمج عدة معالجات على نفس الجهاز لمزيد من الذاكرة — تُحتسب لكل معالج، فتزيد التكلفة مع العدد. إن لم تتوفر معالجات كافية، اختر عددًا أقل."
+                en="Running a large model? Combine 2–4 GPUs on one node for more VRAM and tensor parallelism (e.g. vLLM --tensor-parallel-size 4). Billed per GPU. If a node hasn't enough free GPUs, pick fewer or another type."
+                ar="تشغّل نموذجًا كبيرًا؟ ادمج 2–4 معالجات على نفس الجهاز لمزيد من الذاكرة والتوازي (tensor parallel، مثل vLLM --tensor-parallel-size 4). تُحتسب لكل معالج. إن لم تتوفر معالجات كافية، اختر عددًا أقل."
               />
             </p>
           </div>
@@ -1892,73 +1905,30 @@ export default function RenterPodsPage() {
           </div>
         ) : null}
 
-        <div className={`pod-launch-confirmation ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'تأكيد التشغيل النهائي' : 'Final launch confirmation'}>
-          <div className="pod-launch-confirmation-main">
-            <span><Bi en="Launch button will use" ar="زر التشغيل سيستخدم" /></span>
-            <strong><Bi en={stage2GpuDecisionLabel} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي'} /></strong>
-            <code>{launchRequestPayloadLabel}</code>
-            <em>
-              <Bi
-                en={selectedType
-                  ? 'This fixed GPU card is pinned in the final request.'
-                  : 'No fixed GPU card is pinned; DCP will auto-pick an available type at launch.'}
-                ar={selectedType ? 'بطاقة GPU هذه مثبتة في طلب التشغيل النهائي.' : 'لا توجد بطاقة مثبتة؛ سيختار DCP نوعاً متاحاً عند التشغيل.'}
-              />
-            </em>
-          </div>
-          <div className="pod-launch-confirmation-grid">
-            <span className="primary">
-              <b><Bi en="Stage 2 source" ar="مصدر المرحلة 2" /></b>
-              <strong><Bi en={stage2GpuDecisionLabel} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي'} /></strong>
-              <em>{launchRequestPayloadLabel}</em>
-            </span>
-            <span>
-              <b><Bi en="Workspace" ar="مساحة العمل" /></b>
-              <strong><Bi en={workspaceChecklistLabel} ar={workspaceVolume ? `${workspaceFiles.length} ملفات` : 'أنشئ وحدة مساحة عمل'} /></strong>
-              <em>
-                <Bi
-                  en={workspaceStageBodyOpen ? 'Stage 1 is open; launch still attaches the full /workspace volume.' : 'Stage 1 can stay collapsed; launch still attaches the full /workspace volume.'}
-                  ar={workspaceStageBodyOpen ? 'المرحلة 1 مفتوحة؛ التشغيل يربط كامل /workspace.' : 'يمكن إبقاء المرحلة 1 مطوية؛ التشغيل يربط كامل /workspace.'}
-                />
-              </em>
-            </span>
-            <span>
-              <b><Bi en="Trial policy" ar="سياسة التجربة" /></b>
-              <strong><Bi en={trialTagAnswerLabel} ar={explicitTrialTagLive ? 'وسم تجربة مباشر' : 'لا يوجد وسم تجربة مباشر'} /></strong>
-              <em><Bi en={`${trialRouteAnswerLabel}; ${highDemandAnswerLabel}.`} ar="رصيد التجربة لسعة DCP والمجتمع؛ الطلب العالي برصيد مدفوع فقط." /></em>
-            </span>
-            <span>
-              <b><Bi en="Runtime" ar="البيئة" /></b>
-              <strong>{selectedRuntimeLabel} · {durationLabel}</strong>
-              <em>
-                {selectedQuoteSar != null
-                  ? <Bi en={`Visible quote: ~SAR ${fmtSar(selectedQuoteSar)}`} ar={`التقدير الظاهر: ~${fmtSar(selectedQuoteSar)} ﷼`} />
-                  : <Bi en="Quote appears after a fixed GPU card is selected or backend auto-pick resolves." ar="يظهر التقدير بعد اختيار GPU محدد أو عند حل الاختيار التلقائي في الخلفية." />}
-              </em>
-            </span>
-          </div>
-        </div>
-
-        <div className="pod-launch-review" aria-label={lang === 'ar' ? 'مراجعة التشغيل' : 'Launch review'}>
+        <div className="pod-launch-summary" aria-label={lang === 'ar' ? 'ملخص التشغيل' : 'Launch summary'}>
           <span>
-            <b><Bi en="Stage 1" ar="المرحلة 1" /></b>
-            {workspaceVolume
-              ? `${workspaceVolume.size_gb} GB /workspace`
-              : <Bi en="No workspace volume" ar="لا توجد وحدة مساحة عمل" />}
+            <b><Bi en="GPU" ar="المعالج" /></b>
+            <strong>
+              {selectedType ? displayGpuType(selectedType.gpu_model) : <Bi en="Auto-pick" ar="اختيار تلقائي" />}
+              {launch.gpuCount > 1 ? ` ×${launch.gpuCount}` : ''}
+            </strong>
+            {selectedType?.vram_gb != null && (
+              <em>{selectedType.vram_gb * launch.gpuCount} GB VRAM</em>
+            )}
           </span>
           <span>
-            <b><Bi en="Stage 2" ar="المرحلة 2" /></b>
-            {selectedType
-              ? displayGpuType(selectedType.gpu_model)
-              : <Bi en="Auto-pick GPU" ar="اختيار GPU تلقائي" />}
+            <b><Bi en="Runtime" ar="البيئة" /></b>
+            <strong>{selectedRuntimeLabel}</strong>
+            <em>{durationLabel}</em>
           </span>
           <span>
-            <b><Bi en="Stage 3" ar="المرحلة 3" /></b>
-            {selectedRuntimeLabel} · {durationLabel}
-          </span>
-          <span>
-            <b><Bi en="Credit route" ar="مسار الرصيد" /></b>
-            <Bi en={explicitTrialTagLive ? 'Trial tag active' : 'Trial via grant credit · DCP/community GPUs'} ar={explicitTrialTagLive ? 'وسم التجربة نشط' : 'التجربة حسب رصيد المنحة · معالجات DCP والمجتمع'} />
+            <b><Bi en="Estimate" ar="التقدير" /></b>
+            <strong>
+              {selectedQuoteSar != null
+                ? <Bi en={`~SAR ${fmtSar(selectedQuoteSar)}`} ar={`~${fmtSar(selectedQuoteSar)} ﷼`} />
+                : <Bi en="Shown after GPU picked" ar="يظهر بعد اختيار المعالج" />}
+            </strong>
+            <em><Bi en="full duration · refunded on early stop" ar="المدة كاملة · يُعاد الفرق عند الإيقاف المبكر" /></em>
           </span>
         </div>
 
