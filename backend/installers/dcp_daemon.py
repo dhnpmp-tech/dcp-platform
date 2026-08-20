@@ -156,7 +156,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.9.2"  # --shm-size=16g on pods (unblocks multi-GPU vLLM/NCCL)
+DAEMON_VERSION = "4.9.3"  # vllm_serve honours tensor_parallel_size (TP=gpu_count) + 16g shm
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -7516,6 +7516,15 @@ def run_vllm_serve_job(task_spec, job_id=None):
     max_model_len = int(task_spec.get("max_model_len", 4096))
     dtype = task_spec.get("dtype", "float16")
 
+    # Tensor parallelism (Tareq P0): a multi-GPU serve pod defaults TP to its GPU
+    # count so ONE bigger model is split across all its GPUs. TP=1 preserves the
+    # single-GPU behaviour used by the marketplace inference path (unchanged).
+    try:
+        tp_size = int(task_spec.get("tensor_parallel_size") or 1)
+    except (TypeError, ValueError):
+        tp_size = 1
+    tp_size = max(1, min(tp_size, 8))
+
     # Allowed models (mirrors backend whitelist)
     ALLOWED_VLLM_MODELS = {
         "mistralai/Mistral-7B-Instruct-v0.2",
@@ -7533,6 +7542,11 @@ def run_vllm_serve_job(task_spec, job_id=None):
     container_name = f"dc1-vllm-{job_id or int(time.time())}"
     seccomp_path = _ensure_seccomp_profile()
     container_profile = _vllm_profile_for_model(model)
+
+    # TP/NCCL needs a large /dev/shm — Tito's Node-3 smoke proved 64 MiB kills a
+    # multi-GPU vLLM (v4.9.2 raised interactive pods to 16g; match it here).
+    if tp_size > 1:
+        container_profile = {**container_profile, "shm": "16g"}
 
     # Allocate a free host port
     port = _find_free_port()
@@ -7564,9 +7578,13 @@ def run_vllm_serve_job(task_spec, job_id=None):
     )
 
     # Start container detached — bridge network so the port is accessible from outside
+    # For TP>1, pin the first N devices with the embedded-quote form Docker needs
+    # (unquoted "device=0,1,2,3" comma-splits → "cannot set both Count and
+    # DeviceIDs"; the interactive-pod path proved the quoted form works).
+    gpus_arg = "all" if tp_size <= 1 else f'"device={",".join(str(i) for i in range(tp_size))}"'
     docker_cmd = [
         "docker", "run", "-d",
-        "--gpus", "all",
+        "--gpus", gpus_arg,
         "--name", container_name,
         "--network", "bridge",
         "-p", f"{port}:8000",
@@ -7599,6 +7617,8 @@ def run_vllm_serve_job(task_spec, job_id=None):
         "--host", "0.0.0.0",
         "--port", "8000",
     ]
+    if tp_size > 1:
+        docker_cmd += ["--tensor-parallel-size", str(tp_size)]
     if turboquant_enabled:
         docker_cmd += [
             "--kv-cache-type", "turboquant",

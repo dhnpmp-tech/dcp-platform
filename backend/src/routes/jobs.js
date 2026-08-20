@@ -1085,7 +1085,11 @@ function generateVllmServeSpec(params) {
   const model = ALLOWED_VLLM_MODELS.includes(rawModel) ? rawModel : 'TinyLlama/TinyLlama-1.1B-Chat-v1.0';
   const maxModelLen = Math.min(Math.max(parseInt(params.max_model_len) || 4096, 512), 32768);
   const dtype = ['float16', 'bfloat16', 'float32'].includes(params.dtype) ? params.dtype : 'float16';
-  return JSON.stringify({ serve_mode: true, model, max_model_len: maxModelLen, dtype });
+  // Tensor parallelism (Tareq P0): TP defaults to the pod's GPU count so a
+  // multi-GPU serve pod splits one bigger model across its GPUs. Clamp 1..8.
+  // TP=1 keeps the existing single-GPU marketplace-inference behaviour.
+  const tp = Math.min(Math.max(parseInt(params.tensor_parallel_size || params.gpu_count, 10) || 1, 1), 8);
+  return JSON.stringify({ serve_mode: true, model, max_model_len: maxModelLen, dtype, tensor_parallel_size: tp });
 }
 
 // Map job types to their template generators
