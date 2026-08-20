@@ -1737,8 +1737,8 @@ export default function RenterPodsPage() {
             </div>
             <p className="pod-help">
               <Bi
-                en="Running a large model? Combine 2–4 GPUs on one node for more VRAM and tensor parallelism (e.g. vLLM --tensor-parallel-size 4). Billed per GPU. If a node hasn't enough free GPUs, pick fewer or another type."
-                ar="تشغّل نموذجًا كبيرًا؟ ادمج 2–4 معالجات على نفس الجهاز لمزيد من الذاكرة والتوازي (tensor parallel، مثل vLLM --tensor-parallel-size 4). تُحتسب لكل معالج. إن لم تتوفر معالجات كافية، اختر عددًا أقل."
+                en="Running a large model? Combine 2–4 GPUs on one node for more VRAM. To tensor-parallel serve it (--tensor-parallel-size = GPU count), choose the “vLLM serve” image below — the default PyTorch image ships Jupyter + Torch but not vLLM. Billed per GPU; if a node hasn't enough free GPUs, pick fewer or another type."
+                ar="تشغّل نموذجًا كبيرًا؟ ادمج 2–4 معالجات على نفس الجهاز لمزيد من الذاكرة. للخدمة بالتوازي (‎--tensor-parallel-size = عدد المعالجات) اختر صورة «vLLM serve» أدناه — صورة PyTorch الافتراضية تتضمن Jupyter وTorch لكن دون vLLM. تُحتسب لكل معالج؛ إن لم تتوفر معالجات كافية، اختر عددًا أقل."
               />
             </p>
           </div>
