@@ -816,6 +816,8 @@ export default function RenterPodsPage() {
   const [extendMsg, setExtendMsg] = useState<Record<string, string>>({})
   // One-time launch credentials (root_password + jupyter_token). Cleared on dismiss.
   const [reveal, setReveal] = useState<LaunchReveal | null>(null)
+  // Pods-first redesign: the launch flow lives in a modal (opened from the header).
+  const [launchModalOpen, setLaunchModalOpen] = useState(false)
   const [launch, setLaunch] = useState<LaunchState>({
     gpuType: '',
     durationMinutes: DEFAULT_DURATION_MINUTES,
@@ -1129,6 +1131,8 @@ export default function RenterPodsPage() {
         error: '',
         creditError: null,
       })
+      setLaunchModalOpen(false) // close the launch modal; the new pod + its
+      // one-time credentials now show on the main pods page.
       fetchPods(apiKey)
     } catch {
       setLaunch((l) => ({ ...l, submitting: false, error: 'Network error. Please try again.', creditError: null }))
@@ -1619,20 +1623,25 @@ export default function RenterPodsPage() {
 
   return (
     <main className="rt-main">
-      <h1 className="rt-h1">
-        <Bi en="GPU " ar="" />
-        <em style={{ fontStyle: 'italic', color: 'var(--teal)' }}>
-          <Bi en="pods." ar="حاويات GPU." />
-        </em>
-      </h1>
-      <div className="rt-h1-sub">
-        <span>
-          <Bi en="Full container · Jupyter + SSH" ar="حاوية كاملة · Jupyter + SSH" />
-        </span>
-        <span>
-          <Bi en="Auto-refresh " ar="تحديث تلقائي " />
-          <b>{POD_REFRESH_MS / 1000}s</b>
-        </span>
+      <div className="pod-page-head">
+        <div>
+          <h1 className="rt-h1">
+            <Bi en="GPU " ar="" />
+            <em style={{ fontStyle: 'italic', color: 'var(--teal)' }}>
+              <Bi en="pods." ar="حاويات GPU." />
+            </em>
+          </h1>
+          <div className="rt-h1-sub">
+            <span>
+              <Bi en="Full container · Jupyter + SSH" ar="حاوية كاملة · Jupyter + SSH" />
+            </span>
+          </div>
+        </div>
+        {loadState !== 'missing-key' && (
+          <button type="button" className="pod-launch-cta" onClick={() => setLaunchModalOpen(true)}>
+            <Bi en="+ Launch a pod" ar="+ تشغيل حاوية" />
+          </button>
+        )}
       </div>
 
       {loadState === 'missing-key' && (
@@ -1652,257 +1661,16 @@ export default function RenterPodsPage() {
         </div>
       )}
 
-      {/* ── Stat tiles ─────────────────────────────────── */}
-      <div className="pod-kpis" style={{ marginTop: '36px' }}>
-        <div className="kpi featured">
-          <div className="k">
-            <Bi en="Total pods" ar="إجمالي الحاويات" />
-          </div>
-          <div className="v">{pods.length}</div>
-          <div className="d flat">
-            <Bi en="Across this renter account" ar="عبر حساب المستأجر هذا" />
-          </div>
-        </div>
-        <div className="kpi">
-          <div className="k">
-            <Bi en="Active" ar="نشطة" />
-          </div>
-          <div className="v" style={{ color: activePods > 0 ? 'var(--teal)' : 'var(--ink)' }}>
-            {activePods}
-          </div>
-          <div className="d up">
-            <Bi en="Running or provisioning" ar="قيد التشغيل أو التجهيز" />
-          </div>
-        </div>
-        <div className="kpi">
-          <div className="k">
-            <Bi en="GPU types available" ar="أنواع المعالجات المتاحة" />
-          </div>
-          <div className="v">{gpuTypeCount}</div>
-          <div className="d flat">
-            <Bi en="Ready to host a pod" ar="جاهزة لاستضافة حاوية" />
-          </div>
-        </div>
-      </div>
-
-      <nav className="pod-stage-nav" aria-label={lang === 'ar' ? 'مراحل تشغيل الحاوية' : 'Pod launch stages'}>
-        <a href="#pod-stage-1" className={workspaceVolume ? 'ok' : ''}>
-          <span>1</span>
-          <strong><Bi en="Workspace files" ar="ملفات مساحة العمل" /></strong>
-          <em>
-            <Bi en={workspaceNavStatusLabel} ar={workspaceVolume ? 'قابلة للطي' : 'أنشئ وحدة'} />
-          </em>
-        </a>
-        <a href="#pod-stage-2" className={`primary${selectedType || launch.gpuType === '' ? ' ok' : ''}`}>
-          <span>2</span>
-          <strong><Bi en="Choose GPU" ar="اختر GPU" /></strong>
-          <em>
-            <Bi en={stage2NavStatusLabel} ar={selectedType ? 'تم تثبيت بطاقة GPU' : 'اختيار تلقائي'} />
-          </em>
-        </a>
-        <a href="#pod-stage-3" className="ok">
-          <span>3</span>
-          <strong><Bi en="Runtime & launch" ar="البيئة والتشغيل" /></strong>
-          <em>{stage3NavStatusLabel}</em>
-        </a>
-      </nav>
-
-      <div className={`pod-mobile-launch-dock ${selectedType ? 'fixed' : 'auto'}`} aria-label={lang === 'ar' ? 'شريط تشغيل مختصر' : 'Mobile launch dock'}>
-        <div className="pod-mobile-launch-copy">
-          <span><Bi en="Stage 2 launch GPU" ar="GPU تشغيل المرحلة 2" /></span>
-          <strong><Bi en={stage2GpuDecisionLabel} ar={selectedType ? 'GPU محدد' : 'اختيار تلقائي'} /></strong>
-          <code>{launchRequestPayloadLabel}</code>
-        </div>
-        <div className="pod-mobile-launch-actions">
-          <button
-            type="button"
-            onClick={() => setWorkspaceStageOpen((value) => !value)}
-            aria-expanded={workspaceStageBodyOpen}
-            aria-controls="pod-stage-1-workspace-panel"
-          >
-            <Bi en={workspaceStageBodyOpen ? 'Collapse Stage 1' : 'Open Stage 1'} ar={workspaceStageBodyOpen ? 'اطوِ المرحلة 1' : 'افتح المرحلة 1'} />
-          </button>
-          <a href="#pod-stage-2">
-            <Bi en="Go to Stage 2" ar="اذهب للمرحلة 2" />
-          </a>
-        </div>
-        <div className="pod-mobile-launch-facts">
-          <span><Bi en={mobileDockStage1Label} ar={workspaceStageBodyOpen ? 'المرحلة 1 مفتوحة' : 'المرحلة 1 مطوية'} /></span>
-          <span><Bi en={trialRouteAnswerLabel} ar="مسار التجربة: وحدات DCP والمجتمع" /></span>
-          <span><Bi en={highDemandAnswerLabel} ar="الطلب العالي: رصيد مدفوع فقط" /></span>
-        </div>
-      </div>
-
-      {/* ── Workspace staging ────────────────────────────── */}
-      <div className="pod-stage" id="pod-stage-1" style={{ marginTop: '28px' }}>
-        <div className="pod-stage-hd">
-          <span className="pod-stage-no">1</span>
-          <div>
-            <h2><Bi en="Workspace files" ar="ملفات مساحة العمل" /></h2>
-            <p>
-              <Bi
-                en="Files on /workspace reattach to your next pod."
-                ar="ملفات /workspace تُعاد إلى حاويتك التالية."
-              />
-            </p>
-          </div>
-        </div>
-        <div className={`pod-stage-accordion ${workspaceStageBodyOpen ? 'open' : 'closed'}`} aria-label={lang === 'ar' ? 'نقطة تحقق مساحة العمل للمرحلة 1' : 'Stage 1 workspace checkpoint'}>
-          <div className="pod-stage-accordion-summary">
-            <div className="pod-stage-accordion-copy">
-              <span>
-                <Bi en={workspaceStageBodyOpen ? 'Workspace details open' : 'Workspace details collapsed'} ar={workspaceStageBodyOpen ? 'تفاصيل مساحة العمل مفتوحة' : 'تفاصيل مساحة العمل مطوية'} />
-              </span>
-              <strong><Bi en={workspaceStageHeadline} ar={workspaceVolume ? 'مساحة العمل جاهزة' : 'أنشئ وحدة مساحة عمل'} /></strong>
-              <em><Bi en={workspaceStageDetail} ar={workspaceFiles.length > 0 ? 'تبقى التفاصيل مطوية؛ افتحها فقط عند الحاجة.' : 'افتح المرحلة 1 لإضافة الملفات.'} /></em>
-            </div>
-            <div className="pod-stage-accordion-facts">
-              <span>
-                <Bi en={workspaceVolume ? `${workspaceVolume.size_gb} GB /workspace` : 'No workspace volume'} ar={workspaceVolume ? `${workspaceVolume.size_gb} غ.ب /workspace` : 'لا توجد وحدة مساحة عمل'} />
-              </span>
-              <span>
-                <Bi en={`${workspaceFiles.length} staged files`} ar={`${workspaceFiles.length} ملفات مجهزة`} />
-              </span>
-              <span>
-                <Bi en={`${workspaceFolderCount} folders`} ar={`${workspaceFolderCount} مجلدات`} />
-              </span>
-              <span>
-                <Bi en="Stage 1 can stay collapsed" ar="يمكن إبقاء المرحلة 1 مطوية" />
-              </span>
-              <a href="#pod-stage-2">
-                <Bi en="Skip to Stage 2" ar="انتقل للمرحلة 2" />
-              </a>
-              <button
-                type="button"
-                aria-expanded={workspaceStageBodyOpen}
-                aria-controls="pod-stage-1-workspace-panel"
-                onClick={() => setWorkspaceStageOpen((value) => !value)}
-              >
-                <Bi en={workspaceStageToggleLabel} ar={workspaceStageBodyOpen ? 'اطوِ مساحة العمل' : 'افتح مساحة العمل'} />
-              </button>
-            </div>
-          </div>
-          <div id="pod-stage-1-workspace-panel" hidden={!workspaceStageBodyOpen}>
-            <WorkspacePanel
-              apiBase={getApiBase()}
-              renterKey={renterKey}
-              context="pod-launch"
-              nextStageHref="#pod-stage-2"
-              folderFocusRequest={workspaceFolderFocusRequest}
-              onVolumeLoaded={setWorkspaceVolume}
-              onFilesLoaded={setWorkspaceFiles}
-            />
-          </div>
-          {!workspaceStageBodyOpen && workspaceFiles.length > 0 && (
-            <div className="pod-stage-folder-peek" aria-label={lang === 'ar' ? 'معاينة مجلدات المرحلة 1' : 'Stage 1 folder preview'}>
-              <div className="pod-stage-folder-peek-copy">
-                <span><Bi en="Folder checkpoint" ar="نقطة تحقق المجلدات" /></span>
-                <strong><Bi en="Top folders, not every file" ar="أهم المجلدات بدلاً من كل ملف" /></strong>
-                <em>
-                  <Bi
-                    en="Use this preview to confirm the workspace shape. Expand only for uploads, deletes, or one-folder inspection."
-                    ar="استخدم هذه المعاينة لتأكيد شكل مساحة العمل. افتحها فقط للرفع أو الحذف أو فحص مجلد واحد."
-                  />
-                </em>
-              </div>
-              <div className="pod-stage-folder-peek-search">
-                <label htmlFor="pod-stage-folder-peek-search">
-                  <span><Bi en="Find folder or file" ar="ابحث عن مجلد أو ملف" /></span>
-                  <input
-                    id="pod-stage-folder-peek-search"
-                    type="search"
-                    value={workspacePeekQuery}
-                    onChange={(event) => setWorkspacePeekQuery(event.target.value)}
-                    placeholder={lang === 'ar' ? 'datasets أو checkpoints' : 'datasets, notebooks, checkpoints'}
-                    autoComplete="off"
-                  />
-                </label>
-                <em>
-                  <Bi
-                    en={`${workspacePeekResultLabel}; Stage 2 stays one click away.`}
-                    ar="تبقى المرحلة 2 بنقرة واحدة."
-                  />
-                </em>
-              </div>
-              <div className="pod-stage-folder-outline" aria-label={lang === 'ar' ? 'مخطط مجلدات المرحلة 1' : 'Stage 1 folder outline'}>
-                <span>
-                  <b><Bi en="Workspace outline" ar="مخطط مساحة العمل" /></b>
-                  <em><Bi en={`${workspaceFolderCount} folders stay collapsed until one needs inspection.`} ar="تبقى المجلدات مطوية حتى يحتاج أحدها للفحص." /></em>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => workspacePathPrimaryFolder ? focusWorkspaceFolder(workspacePathPrimaryFolder.id) : setWorkspaceStageOpen(true)}
-                >
-                  <b><Bi en="Open busiest folder" ar="افتح أكثر مجلد نشاطاً" /></b>
-                  <em><Bi en={workspaceOutlinePrimaryLabel} ar="افتح مجلداً واحداً فقط." /></em>
-                </button>
-                <a href="#pod-stage-2">
-                  <b><Bi en="Next stop" ar="الخطوة التالية" /></b>
-                  <em><Bi en="Stage 2 is the actual GPU request." ar="المرحلة 2 هي طلب GPU الفعلي." /></em>
-                </a>
-              </div>
-              <div className="pod-stage-folder-peek-list">
-                {workspaceFolderPeek.map((folder) => (
-                  <button
-                    key={folder.id}
-                    type="button"
-                    onClick={() => focusWorkspaceFolder(folder.id)}
-                    aria-label={
-                      lang === 'ar'
-                        ? `افتح المرحلة 1 مع التركيز على ${folder.label}`
-                        : `Open Stage 1 with ${folder.label} focused`
-                    }
-                  >
-                    <span>{folder.label}</span>
-                    <b>{folder.fileCount} files</b>
-                    <small>{humanBytes(folder.totalBytes)}</small>
-                  </button>
-                ))}
-                {workspacePeekSearch && workspaceFolderPeek.length === 0 && (
-                  <span className="pod-stage-folder-peek-empty">
-                    <Bi en="No collapsed folder matches that search." ar="لا يوجد مجلد مطوي يطابق البحث." />
-                  </span>
-                )}
-                {hiddenWorkspaceFolderCount > 0 && (
-                  <button type="button" onClick={() => setWorkspaceStageOpen(true)}>
-                    <span>+{hiddenWorkspaceFolderCount}</span>
-                    <b><Bi en={workspacePeekSearch ? 'more matches' : 'more folders'} ar="مجلدات أخرى" /></b>
-                    <small><Bi en="expand Stage 1" ar="افتح المرحلة 1" /></small>
-                  </button>
-                )}
-              </div>
-              <div className="pod-stage-folder-path" aria-label={lang === 'ar' ? 'مسار المرحلة 1 المطوية' : 'Collapsed Stage 1 path'}>
-                <span>
-                  <b>1</b>
-                  <strong><Bi en="Summary first" ar="الملخص أولاً" /></strong>
-                  <em><Bi en="Use folder counts instead of scrolling every file." ar="استخدم عدد المجلدات بدلاً من التمرير على كل ملف." /></em>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => workspacePathPrimaryFolder ? focusWorkspaceFolder(workspacePathPrimaryFolder.id) : setWorkspaceStageOpen(true)}
-                >
-                  <b>2</b>
-                  <strong><Bi en="Open one folder" ar="افتح مجلداً واحداً" /></strong>
-                  <em>
-                    <Bi
-                      en={workspacePathPrimaryFolder ? `${workspacePathPrimaryFolder.label} opens; other folders stay closed.` : 'Open Stage 1 only when files need changes.'}
-                      ar="افتح مجلداً واحداً فقط؛ تبقى البقية مطوية."
-                    />
-                  </em>
-                </button>
-                <a href="#pod-stage-2">
-                  <b>3</b>
-                  <strong><Bi en="Stage 2 GPU" ar="GPU المرحلة 2" /></strong>
-                  <em><Bi en="Skip file review when the summary is enough." ar="تجاوز مراجعة الملفات عندما يكفي الملخص." /></em>
-                </a>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Launch panel ───────────────────────────────── */}
-      <section className="panel pod-launch" style={{ marginTop: '28px' }}>
+      {/* ── Launch modal (opened from the header CTA) ─────── */}
+      {launchModalOpen && (
+      <div
+        className="pod-modal-overlay"
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => { if (e.target === e.currentTarget) setLaunchModalOpen(false) }}
+      >
+      <section className="panel pod-launch pod-launch-modal">
+        <button type="button" className="pod-modal-close" aria-label="Close" onClick={() => setLaunchModalOpen(false)}>×</button>
         <div className="panel-hd">
           <div>
             <h3>
@@ -3203,8 +2971,11 @@ export default function RenterPodsPage() {
             </span>
           )}
         </div>
+      </section>
+      </div>
+      )}
 
-        {/* ── One-time credentials reveal (shown ONCE per launch) ───── */}
+      {/* ── One-time credentials reveal (shown ONCE per launch) ───── */}
         {reveal && (reveal.rootPassword || reveal.jupyterToken) && (
           <div className="pod-access" style={{ marginTop: '20px' }}>
             <div
@@ -3271,7 +3042,6 @@ export default function RenterPodsPage() {
             </div>
           </div>
         )}
-      </section>
 
       {/* ── Pods list ──────────────────────────────────── */}
       <section className="panel pod-list-panel" style={{ marginTop: '28px' }}>

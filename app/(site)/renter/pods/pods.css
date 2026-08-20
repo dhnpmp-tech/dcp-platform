@@ -3620,3 +3620,64 @@ select.gpu-sort:focus-visible { outline: 2px solid var(--rt-accent); outline-off
 .pod-gpu-count button.selected strong { color: var(--rt-accent); }
 .pod-gpu-count button.selected span { color: var(--ink-2); }
 .pod-gpu-count button:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Pods-first redesign: header row + launch modal ── */
+.pod-page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.pod-launch-cta {
+  flex-shrink: 0;
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: .06em;
+  padding: 12px 22px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: var(--rt-accent);
+  color: #0a0b1a;
+  cursor: pointer;
+  box-shadow: 0 2px 12px color-mix(in oklab, var(--rt-accent) 28%, transparent);
+  transition: filter .15s, transform .05s;
+}
+.pod-launch-cta:hover { filter: brightness(1.08); }
+.pod-launch-cta:active { transform: translateY(1px); }
+
+.pod-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: max(24px, 5vh) 16px 48px;
+  overflow-y: auto;
+  background: color-mix(in oklab, #05060f 74%, transparent);
+  backdrop-filter: blur(3px);
+}
+.pod-launch-modal {
+  position: relative;
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+}
+.pod-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--ink) 8%, var(--paper));
+  color: var(--ink-2);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.pod-modal-close:hover { border-color: var(--rt-accent); color: var(--rt-accent); }
