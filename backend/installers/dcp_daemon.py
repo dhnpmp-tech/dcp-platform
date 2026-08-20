@@ -156,7 +156,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.9.5"  # vllm_serve: Qwen3 / Qwen3.8-27B catalog (open multi-GPU models)
+DAEMON_VERSION = "4.9.6"  # vllm_serve: pruned to open current-gen Qwen3 catalog only
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -7526,25 +7526,17 @@ def run_vllm_serve_job(task_spec, job_id=None):
     tp_size = max(1, min(tp_size, 8))
 
     # Allowed models (mirrors backend whitelist)
+    # Current-gen, all OPEN (Apache-2.0 / MIT — no HF token). Old-gen (Qwen2.5) and
+    # license-gated models (Llama/Mistral/Gemma/Mixtral) removed — the latter can't
+    # download on a provider without an HF token anyway.
     ALLOWED_VLLM_MODELS = {
-        # 1× — open + gated starters
-        "Qwen/Qwen3-8B",                   # open, current-gen default
-        "microsoft/Phi-3-mini-4k-instruct",
-        "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-        "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-        "mistralai/Mistral-7B-Instruct-v0.2",     # gated
-        "meta-llama/Meta-Llama-3-8B-Instruct",    # gated
-        "google/gemma-2b-it",                     # gated
-        # 2× — OPEN (Apache-2.0, no HF token), needs tensor-parallelism on 3090s
-        "Qwen/Qwen3-14B",                  # ~28 GB FP16 → 2× 3090 (TP=2)
-        "Qwen/Qwen2.5-72B-Instruct-AWQ",   # ~40 GB INT4 → 2× 3090 (TP=2)
-        # 4× — OPEN. Qwen3.8-27B is NEWEST (2026-08-14, Qwen3_5 VL arch — smoke-test
-        # vLLM support); Qwen3-32B is the proven text fallback.
-        "Qwen/Qwen3.8-27B",                # ~54 GB FP16 → 4× 3090 (TP=4)
-        "Qwen/Qwen3-32B",                  # ~64 GB FP16 → 4× 3090 (TP=4)
-        "Qwen/Qwen3-30B-A3B",              # MoE, 3B active → 4× 3090 (TP=4), fast
-        # GATED (needs HF token on provider) — kept for when a token is set.
-        "mistralai/Mixtral-8x7B-Instruct-v0.1",  # ~94 GB FP16 → 4× 3090 (TP=4)
+        "Qwen/Qwen3-8B",                   # 1× — current-gen default
+        "microsoft/Phi-3-mini-4k-instruct",# 1× — fast (MIT)
+        "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",  # 1× — reasoning
+        "Qwen/Qwen3-14B",                  # 2× — ~28 GB FP16 (TP=2)
+        "Qwen/Qwen3.8-27B",                # 4× — NEWEST (2026-08-14), ~54 GB (TP=4)
+        "Qwen/Qwen3-32B",                  # 4× — ~64 GB FP16 (TP=4)
+        "Qwen/Qwen3-30B-A3B",              # 4× — MoE, 3B active (TP=4), fast
     }
     if model not in ALLOWED_VLLM_MODELS:
         log.warning(f"Rejected vllm model '{model}' — not in whitelist. Using TinyLlama.")

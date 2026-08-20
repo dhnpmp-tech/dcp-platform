@@ -857,22 +857,14 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
     // Enforced daemon-side too (run_vllm_serve_job whitelist); mirrored here to
     // return a clear 400 instead of a silent TinyLlama substitution.
     const SERVE_MODELS = new Set([
-      // 1× — open + gated starters
-      'Qwen/Qwen3-8B',
-      'microsoft/Phi-3-mini-4k-instruct',
-      'TinyLlama/TinyLlama-1.1B-Chat-v1.0',
-      'deepseek-ai/DeepSeek-R1-Distill-Llama-8B',
-      'mistralai/Mistral-7B-Instruct-v0.2',
-      'meta-llama/Meta-Llama-3-8B-Instruct',
-      'google/gemma-2b-it',
-      // 2× — open
-      'Qwen/Qwen3-14B',
-      'Qwen/Qwen2.5-72B-Instruct-AWQ',
-      // 4× — open (Qwen3.8-27B is newest; Qwen3-32B is the proven text fallback)
-      'Qwen/Qwen3.8-27B',
-      'Qwen/Qwen3-32B',
-      'Qwen/Qwen3-30B-A3B',
-      'mistralai/Mixtral-8x7B-Instruct-v0.1',
+      // Current-gen, all OPEN (no HF token). Old-gen (Qwen2.5) + gated models removed.
+      'Qwen/Qwen3-8B',                    // 1×
+      'microsoft/Phi-3-mini-4k-instruct', // 1×
+      'deepseek-ai/DeepSeek-R1-Distill-Llama-8B', // 1×
+      'Qwen/Qwen3-14B',                   // 2×
+      'Qwen/Qwen3.8-27B',                 // 4× (newest)
+      'Qwen/Qwen3-32B',                   // 4×
+      'Qwen/Qwen3-30B-A3B',               // 4× MoE
     ]);
     let serveModel = null;
     let serveMaxLen = 4096;

@@ -99,24 +99,20 @@ const IMAGE_PRESETS: ImagePreset[] = [
 // needs a Hugging Face token on the provider (one-click fails without it), so the
 // default is OPEN and gated ones are labelled (Tito's Node-3 QA). vLLM TP must be
 // a power of two, so serve GPU counts are restricted to 1 / 2 / 4.
+// Current-gen, all OPEN (Apache-2.0 / MIT — no HF token), all vLLM-verified.
+// Old generations (Qwen2.5) and license-gated models (Llama/Mistral/Gemma/Mixtral,
+// which can't even download on a provider without an HF token) were removed.
 const SERVE_MODELS: { value: string; label: string; minGpus: 1 | 2 | 4; gated?: boolean }[] = [
-  // 1× — single-GPU. Qwen3-8B is the modern open default; Phi-3/TinyLlama are the
-  // fastest cold-start smoke options.
-  { value: 'Qwen/Qwen3-8B', label: 'Qwen3 8B · open · latest', minGpus: 1 },
-  { value: 'microsoft/Phi-3-mini-4k-instruct', label: 'Phi-3 mini 4k · open · fast', minGpus: 1 },
-  { value: 'TinyLlama/TinyLlama-1.1B-Chat-v1.0', label: 'TinyLlama 1.1B · smoke/tiny', minGpus: 1 },
+  // 1× — single-GPU
+  { value: 'Qwen/Qwen3-8B', label: 'Qwen3 8B · latest', minGpus: 1 },
+  { value: 'microsoft/Phi-3-mini-4k-instruct', label: 'Phi-3 mini 4k · fast', minGpus: 1 },
   { value: 'deepseek-ai/DeepSeek-R1-Distill-Llama-8B', label: 'DeepSeek-R1 Distill 8B · reasoning', minGpus: 1 },
-  { value: 'google/gemma-2b-it', label: 'Gemma 2B Instruct', minGpus: 1, gated: true },
-  { value: 'mistralai/Mistral-7B-Instruct-v0.2', label: 'Mistral 7B Instruct', minGpus: 1, gated: true },
-  { value: 'meta-llama/Meta-Llama-3-8B-Instruct', label: 'Llama 3 8B Instruct', minGpus: 1, gated: true },
   // 2× — needs tensor-parallel
-  { value: 'Qwen/Qwen3-14B', label: 'Qwen3 14B · open · latest', minGpus: 2 },
-  { value: 'Qwen/Qwen2.5-72B-Instruct-AWQ', label: 'Qwen2.5 72B · 4-bit · max params', minGpus: 2 },
-  // 4× — the top of what a 4×3090 node holds (235B / 2.4T MoE & FP8 don't fit Ampere)
-  { value: 'Qwen/Qwen3.8-27B', label: 'Qwen3.8 27B · open · newest', minGpus: 4 },
-  { value: 'Qwen/Qwen3-32B', label: 'Qwen3 32B · open · flagship', minGpus: 4 },
+  { value: 'Qwen/Qwen3-14B', label: 'Qwen3 14B · latest', minGpus: 2 },
+  // 4× — top of what a 4×3090 node holds (235B / 2.4T MoE & FP8 don't fit Ampere)
+  { value: 'Qwen/Qwen3.8-27B', label: 'Qwen3.8 27B · newest', minGpus: 4 },
+  { value: 'Qwen/Qwen3-32B', label: 'Qwen3 32B · flagship', minGpus: 4 },
   { value: 'Qwen/Qwen3-30B-A3B', label: 'Qwen3 30B-A3B · MoE · fast', minGpus: 4 },
-  { value: 'mistralai/Mixtral-8x7B-Instruct-v0.1', label: 'Mixtral 8x7B', minGpus: 4, gated: true },
 ]
 // Qwen3-8B: open (Apache-2.0), fits 1×3090, current-gen quality — the recommended
 // first launch; the shared weight cache makes every launch after the first warm.
