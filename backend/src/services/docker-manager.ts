@@ -195,8 +195,11 @@ export async function launchJobContainer(
         DeviceRequests: [
           {
             Driver: '',
-            Count: -1, // all GPUs
-            DeviceIDs: config.gpuDeviceIds,
+            // Docker rejects a DeviceRequest with BOTH Count and DeviceIDs
+            // ("cannot set both Count and DeviceIDs"). Count:0 = use the given
+            // DeviceIDs; Count:-1 = all GPUs. Never both. (Nexus finding.)
+            Count: config.gpuDeviceIds?.length ? 0 : -1,
+            DeviceIDs: config.gpuDeviceIds ?? [],
             Capabilities: [['gpu']],
             Options: {},
           },
@@ -397,7 +400,7 @@ export async function wipeGPUMemory(gpuId: string): Promise<void> {
         DeviceRequests: [
           {
             Driver: '',
-            Count: -1,
+            Count: 0, // use DeviceIDs, not "all" — Docker rejects both together
             DeviceIDs: [gpuId],
             Capabilities: [['gpu']],
             Options: {},
@@ -425,7 +428,7 @@ export async function wipeGPUMemory(gpuId: string): Promise<void> {
         DeviceRequests: [
           {
             Driver: '',
-            Count: -1,
+            Count: 0, // use DeviceIDs, not "all" — Docker rejects both together
             DeviceIDs: [gpuId],
             Capabilities: [['gpu']],
             Options: {},
