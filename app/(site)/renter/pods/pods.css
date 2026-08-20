@@ -3654,6 +3654,14 @@ select.gpu-sort:focus-visible { outline: 2px solid var(--rt-accent); outline-off
   letter-spacing: .04em;
   color: var(--mut);
 }
+.pod-gpu-card-price {
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: 11px !important;
+  letter-spacing: .02em;
+  color: var(--ink-2) !important;
+}
+.pod-gpu-card.selected .pod-gpu-card-price { color: var(--rt-accent) !important; }
 .pod-gpu-card:hover:not(:disabled) { border-color: var(--rt-accent); }
 .pod-gpu-card.selected {
   border-color: var(--rt-accent);

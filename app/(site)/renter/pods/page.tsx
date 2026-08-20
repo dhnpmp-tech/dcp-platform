@@ -1704,6 +1704,9 @@ export default function RenterPodsPage() {
                 >
                   <strong>{displayGpuType(g.gpu_model)}</strong>
                   <span>{g.vram_gb} GB</span>
+                  {g.sar_per_hour != null && (
+                    <span className="pod-gpu-card-price">{fmtSar(g.sar_per_hour as number)}<Bi en=" SAR/hr" ar=" ﷼/س" /></span>
+                  )}
                 </button>
               ))}
             </div>
