@@ -3705,6 +3705,23 @@ select.gpu-sort:focus-visible { outline: 2px solid var(--rt-accent); outline-off
   color: var(--ink-2);
 }
 
+/* Connection-details header with one-click "Copy all" */
+.pod-access-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.pod-access-hd-k {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+.pod-copy-all { white-space: nowrap; }
+
 /* ── Pods-first redesign: header row + launch modal ── */
 .pod-page-head {
   display: flex;

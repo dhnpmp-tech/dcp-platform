@@ -2020,6 +2020,27 @@ export default function RenterPodsPage() {
             )}
 
             <div className="action-row">
+              <button
+                type="button"
+                className="btn-pri pod-copy-all"
+                onClick={() =>
+                  copyText(
+                    'reveal-all',
+                    [
+                      reveal.podId ? `Pod #${reveal.podId}` : null,
+                      reveal.rootPassword ? `Root password (SSH): ${reveal.rootPassword}` : null,
+                      reveal.jupyterToken ? `Jupyter token: ${reveal.jupyterToken}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join('\n'),
+                  )
+                }
+                aria-label="Copy all credentials"
+              >
+                {copied === 'reveal-all'
+                  ? <Bi en="✓ Copied all" ar="✓ نُسخ الكل" />
+                  : <Bi en="⧉ Copy all credentials" ar="⧉ نسخ كل بيانات الاعتماد" />}
+              </button>
               <button type="button" className="btn-sec" onClick={() => setReveal(null)}>
                 <Bi en="Dismiss" ar="إخفاء" />
               </button>
@@ -2127,6 +2148,33 @@ export default function RenterPodsPage() {
 
                   {accessReady ? (
                     <div className="pod-access">
+                      <div className="pod-access-hd">
+                        <span className="pod-access-hd-k">
+                          <Bi en="Connection details" ar="بيانات الاتصال" />
+                        </span>
+                        <button
+                          type="button"
+                          className="btn-sec pod-copy-all"
+                          onClick={() =>
+                            copyText(
+                              `all-${id}`,
+                              [
+                                `Pod #${id}`,
+                                pod.gpu_type ? `GPU: ${displayGpuType(pod.gpu_type)}` : null,
+                                `Jupyter: ${pod.access_url}`,
+                                pod.ssh_command ? `SSH: ${pod.ssh_command}` : null,
+                              ]
+                                .filter(Boolean)
+                                .join('\n'),
+                            )
+                          }
+                          aria-label="Copy all pod connection details"
+                        >
+                          {copied === `all-${id}`
+                            ? <Bi en="✓ Copied all" ar="✓ نُسخ الكل" />
+                            : <Bi en="⧉ Copy all details" ar="⧉ نسخ كل التفاصيل" />}
+                        </button>
+                      </div>
                       <div className="pod-access-block">
                         <div className="pod-access-body">
                           <span className="pod-access-k">
