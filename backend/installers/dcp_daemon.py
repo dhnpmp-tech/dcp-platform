@@ -156,7 +156,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.9.3"  # vllm_serve honours tensor_parallel_size (TP=gpu_count) + 16g shm
+DAEMON_VERSION = "4.9.4"  # vllm_serve: persistent shared HF weight cache (dcp-hf-cache volume)
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -7527,12 +7527,19 @@ def run_vllm_serve_job(task_spec, job_id=None):
 
     # Allowed models (mirrors backend whitelist)
     ALLOWED_VLLM_MODELS = {
+        # 1× starters
         "mistralai/Mistral-7B-Instruct-v0.2",
         "meta-llama/Meta-Llama-3-8B-Instruct",
         "microsoft/Phi-3-mini-4k-instruct",
         "google/gemma-2b-it",
         "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
         "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+        # Multi-GPU, OPEN (Apache-2.0, no HF token needed) — the "bigger model"
+        # tier that actually needs tensor-parallelism on 3090s.
+        "Qwen/Qwen2.5-72B-Instruct-AWQ",   # ~40 GB INT4 → 2× 3090 (TP=2)
+        "Qwen/Qwen2.5-32B-Instruct",       # ~64 GB FP16 → 4× 3090 (TP=4)
+        # Multi-GPU, GATED (need HF token on provider) — kept for when a token is set.
+        "mistralai/Mixtral-8x7B-Instruct-v0.1",  # ~94 GB FP16 → 4× 3090 (TP=4)
     }
     if model not in ALLOWED_VLLM_MODELS:
         log.warning(f"Rejected vllm model '{model}' — not in whitelist. Using TinyLlama.")
@@ -7594,6 +7601,12 @@ def run_vllm_serve_job(task_spec, job_id=None):
         "--name", container_name,
         "--network", "bridge",
         "-p", f"{port}:8000",
+        # Persistent HF weight cache shared across ALL serve pods on this node, so a
+        # model is downloaded ONCE and every later launch is warm. Without this each
+        # ephemeral container re-pulls the weights — a residential re-pull of a
+        # 40-94 GB model would blow past a 30-min rental (Tito's Node-3 QA). Pre-
+        # cached weights live in this same named volume.
+        "-v", "dcp-hf-cache:/root/.cache/huggingface",
         "--memory", container_profile["memory"],
         "--memory-swap", container_profile["memory"],
         "--cpus", container_profile["cpu"],

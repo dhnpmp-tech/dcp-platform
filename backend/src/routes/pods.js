@@ -857,12 +857,17 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
     // Enforced daemon-side too (run_vllm_serve_job whitelist); mirrored here to
     // return a clear 400 instead of a silent TinyLlama substitution.
     const SERVE_MODELS = new Set([
+      // 1× starters
       'mistralai/Mistral-7B-Instruct-v0.2',
       'meta-llama/Meta-Llama-3-8B-Instruct',
       'microsoft/Phi-3-mini-4k-instruct',
       'google/gemma-2b-it',
       'TinyLlama/TinyLlama-1.1B-Chat-v1.0',
       'deepseek-ai/DeepSeek-R1-Distill-Llama-8B',
+      // Multi-GPU open (Apache-2.0) + one gated (needs HF token on provider)
+      'Qwen/Qwen2.5-72B-Instruct-AWQ',
+      'Qwen/Qwen2.5-32B-Instruct',
+      'mistralai/Mixtral-8x7B-Instruct-v0.1',
     ]);
     let serveModel = null;
     let serveMaxLen = 4096;
@@ -874,6 +879,15 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
           error: 'Serve mode requires a supported model. Pass params.MODEL as one of the allowed vLLM models.',
           code: 'INVALID_SERVE_MODEL',
           allowed_models: Array.from(SERVE_MODELS),
+        });
+      }
+      // vLLM tensor-parallel size must be a power of two (it has to divide the
+      // model's attention heads) — 3 GPUs would fail to start. Restrict serve to
+      // 1 / 2 / 4. (Notebook mode keeps the full 1..4 range.)
+      if (![1, 2, 4].includes(requestedGpuCount)) {
+        return res.status(400).json({
+          error: 'Serve mode supports 1, 2, or 4 GPUs (tensor-parallel size must be a power of two). Pick 1, 2, or 4.',
+          code: 'SERVE_TP_UNSUPPORTED',
         });
       }
       serveMaxLen = toFiniteInt(body.max_model_len, { min: 512, max: 32768 }) || 4096;

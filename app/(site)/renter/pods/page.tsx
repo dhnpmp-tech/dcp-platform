@@ -94,16 +94,23 @@ const IMAGE_PRESETS: ImagePreset[] = [
 // Serve-mode models — mirrors the backend + daemon whitelist (run_vllm_serve_job).
 // Ordered small → large so the default is a safe single-GPU pick; multi-GPU pods
 // serve the bigger ones tensor-parallel (TP = GPU count).
-// `gated` = needs Hugging Face license acceptance / token to download. One-click
-// serve can fail ugly on a provider without an HF token, so the default is an
-// OPEN model and gated ones are labelled (Tito's Node-3 QA flag).
-const SERVE_MODELS: { value: string; label: string; gated?: boolean }[] = [
-  { value: 'TinyLlama/TinyLlama-1.1B-Chat-v1.0', label: 'TinyLlama 1.1B · fast/tiny' },
-  { value: 'microsoft/Phi-3-mini-4k-instruct', label: 'Phi-3 mini 4k · open' },
-  { value: 'deepseek-ai/DeepSeek-R1-Distill-Llama-8B', label: 'DeepSeek-R1 Distill 8B · open' },
-  { value: 'google/gemma-2b-it', label: 'Gemma 2B Instruct', gated: true },
-  { value: 'mistralai/Mistral-7B-Instruct-v0.2', label: 'Mistral 7B Instruct', gated: true },
-  { value: 'meta-llama/Meta-Llama-3-8B-Instruct', label: 'Llama 3 8B Instruct', gated: true },
+// Serve catalog. `minGpus` = the tensor-parallel size the model needs on a 3090
+// (24 GB) node — selecting a model auto-sets the pod's GPU count to it. `gated` =
+// needs a Hugging Face token on the provider (one-click fails without it), so the
+// default is OPEN and gated ones are labelled (Tito's Node-3 QA). vLLM TP must be
+// a power of two, so serve GPU counts are restricted to 1 / 2 / 4.
+const SERVE_MODELS: { value: string; label: string; minGpus: 1 | 2 | 4; gated?: boolean }[] = [
+  // 1× — single-GPU starters
+  { value: 'TinyLlama/TinyLlama-1.1B-Chat-v1.0', label: 'TinyLlama 1.1B · fast/tiny', minGpus: 1 },
+  { value: 'microsoft/Phi-3-mini-4k-instruct', label: 'Phi-3 mini 4k · open', minGpus: 1 },
+  { value: 'deepseek-ai/DeepSeek-R1-Distill-Llama-8B', label: 'DeepSeek-R1 Distill 8B · open', minGpus: 1 },
+  { value: 'google/gemma-2b-it', label: 'Gemma 2B Instruct', minGpus: 1, gated: true },
+  { value: 'mistralai/Mistral-7B-Instruct-v0.2', label: 'Mistral 7B Instruct', minGpus: 1, gated: true },
+  { value: 'meta-llama/Meta-Llama-3-8B-Instruct', label: 'Llama 3 8B Instruct', minGpus: 1, gated: true },
+  // 2× / 4× — the multi-GPU "bigger model" tier
+  { value: 'Qwen/Qwen2.5-72B-Instruct-AWQ', label: 'Qwen2.5 72B · 4-bit · frontier', minGpus: 2 },
+  { value: 'Qwen/Qwen2.5-32B-Instruct', label: 'Qwen2.5 32B · full precision', minGpus: 4 },
+  { value: 'mistralai/Mixtral-8x7B-Instruct-v0.1', label: 'Mixtral 8x7B', minGpus: 4, gated: true },
 ]
 // Phi-3 mini: open (MIT), fits 1×3090, quick cold-start — the safest first success.
 const DEFAULT_SERVE_MODEL = 'microsoft/Phi-3-mini-4k-instruct'
@@ -1816,8 +1823,15 @@ export default function RenterPodsPage() {
               <Bi en="GPUs" ar="عدد المعالجات" />
             </label>
             <div className="pod-gpu-count" role="radiogroup" aria-label={lang === 'ar' ? 'عدد المعالجات' : 'GPU count'}>
-              {[1, 2, 3, 4].map((n) => {
+              {/* Serve: only power-of-two TP (1/2/4). Notebook: full 1..4. */}
+              {(launch.mode === 'serve' ? [1, 2, 4] : [1, 2, 3, 4]).map((n) => {
                 const vram = selectedType?.vram_gb ? selectedType.vram_gb * n : null
+                // In serve mode the selected model dictates the minimum GPU count
+                // (its TP) — smaller counts can't hold it, so disable them.
+                const modelMin = launch.mode === 'serve'
+                  ? (SERVE_MODELS.find((m) => m.value === launch.serveModel)?.minGpus ?? 1)
+                  : 1
+                const belowModel = launch.mode === 'serve' && n < modelMin
                 return (
                   <button
                     key={n}
@@ -1825,8 +1839,11 @@ export default function RenterPodsPage() {
                     role="radio"
                     aria-checked={launch.gpuCount === n}
                     className={launch.gpuCount === n ? 'selected' : ''}
-                    onClick={() => setLaunch((l) => ({ ...l, gpuCount: n, mode: n >= 2 ? 'serve' : l.mode, ...keepFundingLaunchError(l.error, l.creditError) }))}
-                    disabled={!isLive}
+                    // Only 2× / 4× imply "serve a bigger model" — 3 stays notebook
+                    // (serve can't use a non-power-of-two TP).
+                    onClick={() => setLaunch((l) => ({ ...l, gpuCount: n, mode: (n === 2 || n === 4) ? 'serve' : l.mode, ...keepFundingLaunchError(l.error, l.creditError) }))}
+                    disabled={!isLive || belowModel}
+                    title={belowModel ? 'This model needs more GPUs' : undefined}
                   >
                     <strong>{n}×</strong>
                     {vram != null && <span>{vram} GB</span>}
@@ -1856,11 +1873,18 @@ export default function RenterPodsPage() {
                   id="pod-serve-model"
                   className="select"
                   value={launch.serveModel}
-                  onChange={(e) => setLaunch((l) => ({ ...l, serveModel: e.target.value }))}
+                  onChange={(e) => {
+                    // Picking a model auto-sets the pod's GPU count to what the
+                    // model needs (TP): Qwen-72B → 2×, Qwen-32B / Mixtral → 4×.
+                    const m = SERVE_MODELS.find((x) => x.value === e.target.value)
+                    setLaunch((l) => ({ ...l, serveModel: e.target.value, gpuCount: m ? m.minGpus : l.gpuCount }))
+                  }}
                   disabled={!isLive}
                 >
                   {SERVE_MODELS.map((m) => (
-                    <option key={m.value} value={m.value}>{m.gated ? `${m.label} · needs HF license` : m.label}</option>
+                    <option key={m.value} value={m.value}>
+                      {`${m.label}${m.minGpus > 1 ? ` · ${m.minGpus}× GPU` : ''}${m.gated ? ' · needs HF license' : ''}`}
+                    </option>
                   ))}
                 </select>
                 {/* Serve always runs tensor-parallel = GPU count; make that explicit. */}
