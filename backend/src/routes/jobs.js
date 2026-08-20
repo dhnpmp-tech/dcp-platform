@@ -3426,10 +3426,19 @@ router.post('/:job_id/endpoint-ready', (req, res) => {
         const sshCommand = `ssh -p ${spub} root@api.dcp.sa`;
         const nowPod = new Date().toISOString();
         runStatement(
+          // Billing starts when the pod is OFFICIALLY LIVE (access_url set), not at
+          // claim/pull — the renter must not pay for provisioning time. On the first
+          // live report (access_url still NULL) we (re)set started_at + timeout_at to
+          // this moment; re-reports leave them untouched.
           `UPDATE jobs SET jupyter_host_port=?, ssh_host_port=?, pod_wg_mesh_ip=?, pod_jpub=?, pod_spub=?,
             access_url=?, ssh_command=?, status='running', progress_phase='serving',
-            progress_updated_at=?, started_at=COALESCE(started_at, ?) WHERE id=?`,
-          jport, sport, meshIp, jpub, spub, accessUrl, sshCommand, nowPod, nowPod, job0.id
+            progress_updated_at=?,
+            started_at = CASE WHEN access_url IS NULL THEN ? ELSE started_at END,
+            timeout_at = CASE WHEN access_url IS NULL
+              THEN datetime(?, '+' || COALESCE(max_duration_seconds, 600) || ' seconds')
+              ELSE timeout_at END
+           WHERE id=?`,
+          jport, sport, meshIp, jpub, spub, accessUrl, sshCommand, nowPod, nowPod, nowPod, job0.id
         );
         console.log(`[pod] Job ${job0.job_id}: live at ${accessUrl} | ssh -p ${spub}`);
         return res.json({ success: true, access_url: accessUrl, ssh_command: sshCommand });
