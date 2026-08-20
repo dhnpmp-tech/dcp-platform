@@ -2746,16 +2746,16 @@ export default function RenterPodsPage() {
                           }, ${availLabel}`
                           const onSelect = (e: React.MouseEvent<HTMLDivElement>) => {
                             if (!selectable) return
-                            // Keep the clicked card in place. Selecting a GPU expands the
-                            // summary above the grid, which would otherwise shift the cards
-                            // down and make the viewport appear to jump to another card.
+                            // Selecting a GPU re-renders/animates the summary above the grid,
+                            // which shifts the cards and makes the viewport jump to another
+                            // band. Pin the CLICKED card in view: scroll it minimally back
+                            // after the immediate reflow (rAF) AND after the CSS transition
+                            // settles (short timeout). block:'nearest' = no-op if still visible.
                             const el = e.currentTarget
-                            const before = el.getBoundingClientRect().top
                             selectGpuType(g.gpu_model)
-                            requestAnimationFrame(() => {
-                              const after = el.getBoundingClientRect().top
-                              if (Math.abs(after - before) > 1) window.scrollBy(0, after - before)
-                            })
+                            const keepInView = () => el.scrollIntoView({ block: 'nearest' })
+                            requestAnimationFrame(keepInView)
+                            window.setTimeout(keepInView, 260)
                           }
                           const onKey = (e: React.KeyboardEvent) => {
                             if (!selectable) return
@@ -3333,8 +3333,9 @@ export default function RenterPodsPage() {
                     )}
                   </div>
 
-                  {pod.status === 'running' && typeof pod.seconds_remaining === 'number' && (() => {
-                    // live countdown: recompute from ends_at every tick (nowTick drives re-render)
+                  {accessReady && typeof pod.seconds_remaining === 'number' && (() => {
+                    // Rental timer only once the pod is LIVE (access_url set) — never
+                    // during provisioning. recompute from ends_at every tick (nowTick).
                     void nowTick
                     const left = pod.ends_at
                       ? Math.max(0, Math.round((Date.parse(pod.ends_at) - Date.now()) / 1000))
@@ -3418,10 +3419,24 @@ export default function RenterPodsPage() {
                   ) : active ? (
                     <div className="pod-provisioning">
                       <span className="pod-spinner" aria-hidden="true" />
-                      <Bi
-                        en="Provisioning your pod… endpoints appear here once it's ready."
-                        ar="جارٍ تجهيز حاويتك… ستظهر نقاط الوصول هنا عند الجاهزية."
-                      />
+                      <span className="pod-provisioning-body">
+                        <span className="pod-provisioning-line">
+                          <Bi en="Provisioning your pod…" ar="جارٍ تجهيز حاويتك…" />
+                          {(() => {
+                            void nowTick
+                            const t0 = pod.submitted_at || pod.created_at
+                            if (!t0) return null
+                            const secs = Math.max(0, Math.round((Date.now() - Date.parse(t0)) / 1000))
+                            return <b> {formatCountdown(secs)}</b>
+                          })()}
+                        </span>
+                        <small>
+                          <Bi
+                            en="Pulling the image and starting Jupyter. Your endpoints — and the rental timer — appear once it's live. A node's first launch can take a couple of minutes."
+                            ar="جارٍ تجهيز البيئة وتشغيل Jupyter. ستظهر نقاط الوصول ومؤقّت الإيجار عند الجاهزية. قد يستغرق أول تشغيل على الجهاز دقيقتين."
+                          />
+                        </small>
+                      </span>
                     </div>
                   ) : (
                     <div className="pod-inactive">

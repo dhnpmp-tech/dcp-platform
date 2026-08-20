@@ -3439,12 +3439,21 @@ select.gpu-sort:focus-visible { outline: 2px solid var(--rt-accent); outline-off
 /* Provisioning + inactive states */
 .pod-provisioning {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   font-family: var(--mono);
   font-size: 11px;
   letter-spacing: .04em;
   color: var(--ink-2);
+}
+.pod-provisioning-body { display: flex; flex-direction: column; gap: 4px; }
+.pod-provisioning-line b { color: var(--rt-accent); font-weight: 500; }
+.pod-provisioning-body small {
+  font-size: 10px;
+  color: var(--mut);
+  letter-spacing: .03em;
+  line-height: 1.5;
+  max-width: 62ch;
 }
 .pod-inactive {
   font-family: var(--mono);
