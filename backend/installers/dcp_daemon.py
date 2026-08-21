@@ -156,7 +156,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.9.6"  # vllm_serve: pruned to open current-gen Qwen3 catalog only
+DAEMON_VERSION = "4.9.7"  # vllm_serve: scale container limits (mem/pids/cpu/shm) for multi-GPU TP
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -7547,10 +7547,21 @@ def run_vllm_serve_job(task_spec, job_id=None):
     seccomp_path = _ensure_seccomp_profile()
     container_profile = _vllm_profile_for_model(model)
 
-    # TP/NCCL needs a large /dev/shm — Tito's Node-3 smoke proved 64 MiB kills a
-    # multi-GPU vLLM (v4.9.2 raised interactive pods to 16g; match it here).
+    # Multi-GPU serve loads a big model across N worker processes, each spawning
+    # many torch / NCCL / inductor-compile threads. The single-small-model defaults
+    # (24g mem / 512 pids / 8 cpu / small shm) cause fork/mmap EAGAIN ("Resource
+    # temporarily unavailable") during executor init — the workers die right after
+    # NCCL connects. Scale the container limits with the tensor-parallel size; the
+    # host has ample RAM/CPU (Node 3 = 376 GB / many cores).
     if tp_size > 1:
-        container_profile = {**container_profile, "shm": "16g"}
+        container_profile = {
+            **container_profile,
+            "shm": "32g",
+            "memory": f"{max(48, tp_size * 24)}g",  # 4× → 96g host RAM
+            "cpu": str(min(48, tp_size * 8)),        # 4× → 32 CPUs
+            "pids": "8192",                          # 4-way TP spawns >512 threads
+            "tmp": "8g",
+        }
 
     # Allocate a free host port
     port = _find_free_port()
