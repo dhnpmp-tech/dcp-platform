@@ -3705,9 +3705,11 @@ function buildNextPendingJob(providerId) {
     runStatement(`UPDATE providers SET current_job_id = ? WHERE id = ?`, job.job_id, providerId);
 
     let taskSpec = job.task_spec;
-    // interactive_pod: deliver the RAW signed task_spec string so the daemon's HMAC
-    // verify (which hashes the exact bytes) matches; the daemon json.loads it itself.
-    if (job.job_type !== 'interactive_pod') {
+    // interactive_pod AND vllm_serve: deliver the RAW signed task_spec string so the
+    // daemon's HMAC verify (which hashes the exact bytes) matches — re-parsing to an
+    // object changes the bytes and the daemon rejects it as tampered. Both daemon
+    // handlers json.loads the string themselves. Other job types still get an object.
+    if (job.job_type !== 'interactive_pod' && job.job_type !== 'vllm_serve') {
         try { taskSpec = JSON.parse(taskSpec); } catch {}
     }
 
