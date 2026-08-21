@@ -156,7 +156,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.9.7"  # vllm_serve: scale container limits (mem/pids/cpu/shm) for multi-GPU TP
+DAEMON_VERSION = "4.9.8"  # vllm_serve: 15min health timeout for TP>1 (big-model compile)
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -7722,10 +7722,16 @@ def run_vllm_serve_job(task_spec, job_id=None):
     except Exception as e:
         return {"success": False, "error": f"Docker start error: {e}"}
 
-    # Poll /health until ready (up to 5 minutes for model load)
+    # Poll /health until ready. A single small model is up in <5 min, but a big
+    # multi-GPU model (TP>1) spends minutes in torch.compile / CUDA-graph capture
+    # after the weights load — give it up to 15 min. The container-alive check
+    # inside the loop still fails a REAL crash within ~5s, so the longer ceiling
+    # only benefits a legitimately-slow load, never a broken one.
     health_url = f"http://127.0.0.1:{port}/health"
+    max_wait_min = 15 if tp_size > 1 else 5
+    attempts = max_wait_min * 12  # 12 × 5s = 1 minute
     ready = False
-    for attempt in range(60):  # 60 × 5s = 5 minutes
+    for attempt in range(attempts):
         time.sleep(5)
         try:
             import urllib.request as _urllib
@@ -7746,7 +7752,7 @@ def run_vllm_serve_job(task_spec, job_id=None):
 
     if not ready:
         subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
-        return {"success": False, "error": "vLLM endpoint did not become healthy within 5 minutes"}
+        return {"success": False, "error": f"vLLM endpoint did not become healthy within {max_wait_min} minutes"}
 
     # Report endpoint ready to backend. Include the WireGuard mesh IP so the VPS
     # can front the serve port with a public TLS relay (NAT'd nodes aren't
