@@ -873,7 +873,7 @@ export default function RenterPodsPage() {
     customImage: '',
     mode: 'notebook',
     serveModel: DEFAULT_SERVE_MODEL,
-    serveMaxLen: 4096,
+    serveMaxLen: 32768,
     submitting: false,
     error: '',
     creditError: null,
@@ -1915,8 +1915,8 @@ export default function RenterPodsPage() {
                   onChange={(e) => setLaunch((l) => ({ ...l, serveMaxLen: Number(e.target.value) }))}
                   disabled={!isLive}
                 >
-                  {[2048, 4096, 8192, 16384, 32768].map((n) => (
-                    <option key={n} value={n}>{`${n.toLocaleString()} tokens`}</option>
+                  {[8192, 16384, 32768, 65536, 131072].map((n) => (
+                    <option key={n} value={n}>{`${(n / 1024)}K tokens`}</option>
                   ))}
                 </select>
                 <p className="pod-help">

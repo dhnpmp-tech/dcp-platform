@@ -887,7 +887,10 @@ router.post('/', requireRenter, requireComputeScope, withFinancialIdempotency({
           code: 'SERVE_TP_UNSUPPORTED',
         });
       }
-      serveMaxLen = toFiniteInt(body.max_model_len, { min: 512, max: 32768 }) || 4096;
+      // Native context is large (Qwen3 = 256k); the practical ceiling is KV-cache
+      // VRAM. Default 32k (comfortable on 4×3090 TP=4) and allow up to 131072 for
+      // callers who know it fits.
+      serveMaxLen = toFiniteInt(body.max_model_len, { min: 512, max: 131072 }) || 32768;
       serveDtype = ['float16', 'bfloat16', 'float32'].includes(body.dtype) ? body.dtype : 'float16';
     }
 

@@ -156,7 +156,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.9.9"  # vllm_serve: skip coarse single-GPU VRAM preflight (wrong for sharded TP)
+DAEMON_VERSION = "4.9.10"  # vllm_serve: Qwen3 thinking OFF by default + larger context
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -7646,6 +7646,13 @@ def run_vllm_serve_job(task_spec, job_id=None):
     ]
     if tp_size > 1:
         docker_cmd += ["--tensor-parallel-size", str(tp_size)]
+    # Qwen3 ships hybrid "thinking" mode ON by default — the model emits a
+    # <think>…</think> reasoning preamble before the answer, which looks broken to
+    # a renter hitting a plain chat endpoint. Default it OFF server-side; a caller
+    # who wants it can still re-enable per-request via chat_template_kwargs
+    # (request-level overrides this default).
+    if "qwen3" in model.lower():
+        docker_cmd += ["--default-chat-template-kwargs", '{"enable_thinking": false}']
     if turboquant_enabled:
         docker_cmd += [
             "--kv-cache-type", "turboquant",
