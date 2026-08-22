@@ -156,7 +156,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.9.10"  # vllm_serve: Qwen3 thinking OFF by default + larger context
+DAEMON_VERSION = "4.9.11"  # vllm_serve preempts idle Ollama inference (shared single-GPU nodes)
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -8869,10 +8869,13 @@ def poll_and_execute():
     if is_duplicate_job(job_id):
         return  # Already processed this job
 
-    # ── Make room: evict idle Ollama models so an interactive_pod can take the GPU ──
-    # Pod-only: inference is preemptible for pods; other job types must NOT evict.
-    if job_type == "interactive_pod":
-        pod_required = VRAM_REQUIREMENTS.get("interactive_pod", VRAM_DEFAULT_REQUIREMENT)
+    # ── Make room: evict idle Ollama models so a pod/serve can take the GPU ──
+    # Pods AND vllm_serve preempt idle inference (e.g. Node 2's shared 3090 runs
+    # Ollama for the inference API; a serve pod must reclaim that VRAM or it OOMs).
+    # Other job types must NOT evict. On a dedicated node (Node 3, no Ollama) this
+    # is a harmless no-op.
+    if job_type in ("interactive_pod", "vllm_serve"):
+        pod_required = VRAM_REQUIREMENTS.get(job_type, VRAM_DEFAULT_REQUIREMENT)
         try:
             stopped = drain_inference_for_pod(job_id)
             if stopped:
