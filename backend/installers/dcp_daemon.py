@@ -156,7 +156,7 @@ HEARTBEAT_BACKOFF_BASE = 2.0         # double each consecutive failure
 JOB_POLL_INTERVAL = 10    # seconds
 JOB_POLL_JITTER_PCT = 0.10           # ±10% jitter on poll sleep
 UPDATE_CHECK_JITTER_PCT = 0.20       # ±20% jitter on update-check sleep
-DAEMON_VERSION = "4.9.8"  # vllm_serve: 15min health timeout for TP>1 (big-model compile)
+DAEMON_VERSION = "4.9.9"  # vllm_serve: skip coarse single-GPU VRAM preflight (wrong for sharded TP)
 MAX_STDOUT = 2097152       # 2 MB stdout capture (for base64 image results)
 JOB_TIMEOUT = 900          # 15 min default job timeout (model downloads can be slow)
 RESULT_POST_TIMEOUT = 120  # 2 min for uploading results (large base64 images)
@@ -8882,7 +8882,12 @@ def poll_and_execute():
             log.warning(f"Job {job_id}: GPU claim for pod failed ({e}); proceeding to VRAM gate")
 
     # ── Guard: VRAM check ──
-    vram_ok, free_vram, required_vram = check_vram_available(job_type)
+    # SKIP for vllm_serve: this coarse guard reads ONE GPU's free VRAM and demands
+    # the whole model fit there, which is wrong for a tensor-parallel serve pod
+    # (the model is SHARDED across N GPUs — no single GPU needs the full amount).
+    # Serve is already protected: the backend assigns specific free GPU indices,
+    # and vLLM does the real per-shard VRAM check at load and fails cleanly.
+    vram_ok, free_vram, required_vram = (True, 0, 0) if job_type == "vllm_serve" else check_vram_available(job_type)
     if not vram_ok:
         log.warning(f"Job {job_id} rejected: insufficient VRAM ({free_vram}/{required_vram} MiB)")
         report_event("job_failure",
